@@ -19,13 +19,17 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def get_photos():
+def get_photos(sort_by: str = 'name'):
     """写真のリストを取得"""
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         return []
-    photos = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) 
+    photos = [f for f in os.listdir(app.config['UPLOAD_FOLDER'])
               if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
-    photos.sort()
+    if sort_by == 'upload':
+        upload_folder = app.config['UPLOAD_FOLDER']
+        photos.sort(key=lambda filename: os.path.getmtime(os.path.join(upload_folder, filename)))
+    else:
+        photos.sort()
     return photos
 
 @app.route('/')
@@ -104,8 +108,19 @@ def admin_dashboard():
 @app.route('/admin/slideshow')
 @admin_required
 def admin_slideshow():
-    photos = get_photos()
-    return render_template('admin_slideshow.html', photos=photos)
+    photos = get_photos(sort_by='upload')
+    if photos:
+        offset = max(1, len(photos) // 3 or 1)
+        bottom_photos = photos[offset:] + photos[:offset]
+    else:
+        bottom_photos = []
+    return render_template(
+        'admin_slideshow.html',
+        photos=photos,
+        photos_top=photos,
+        photos_middle=photos,
+        photos_bottom=bottom_photos
+    )
 
 # ランキング作成（現時点ではデータベースがないため、実装は簡易版）
 @app.route('/admin/ranking/create', methods=['POST'])
