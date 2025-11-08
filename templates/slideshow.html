@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スライドショー</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+        .photo-grid {
+            column-count: 3;
+            column-gap: 20px;
+            padding: 20px;
+        }
+        /* スマートフォンとタブレット用の設定 */
+        @media screen and (max-width: 767px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .photo-grid {
+                column-count: 2 !important;
+                column-gap: 10px;
+                padding: 10px;
+            }
+            h1 {
+                font-size: 20px;
+                margin-bottom: 20px;
+            }
+        }
+        .photo-item {
+            break-inside: avoid;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: white;
+            padding: 10px;
+            transition: transform 0.3s ease;
+        }
+        .photo-item:hover {
+            transform: translateY(-5px);
+        }
+        .photo-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+        }
+        .back-button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover {
+            background-color: #2980b9;
+        }
+        .no-photos {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+            font-size: 18px;
+        }
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        /* 画像の読み込みアニメーション */
+        .photo-item img {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .photo-item img.loaded {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>アップロードされた写真</h1>
+        {% if photos %}
+            <div class="photo-grid">
+                {% for photo in photos %}
+                    <div class="photo-item">
+                        <img src="{{ url_for('static', filename='uploads/' + photo) }}" 
+                             alt="{{ photo }}"
+                             onload="this.classList.add('loaded')">
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-photos">
+                まだ写真がアップロードされていません。
+            </div>
+        {% endif %}
+        <div class="button-container">
+            <a href="/" class="back-button">← 戻る</a>
+        </div>
+    </div>
+
+    <!-- 写真データをdata属性として埋め込む -->
+    <script type="application/json" id="photos-data">{% if photos %}{{ photos | tojson }}{% else %}[]{% endif %}</script>
+    
+    <script>
+        // 現在の写真のリストを保持
+        // データ属性から写真リストを取得
+        const photosDataElement = document.getElementById('photos-data');
+        let currentPhotos = [];
+        try {
+            currentPhotos = JSON.parse(photosDataElement.textContent);
+        } catch (e) {
+            console.error('Failed to parse photos data:', e);
+            currentPhotos = [];
+        }
+        let addedPhotoFilenames = new Set(currentPhotos); // 追加済みの写真を追跡
+        
+        // スライドショーに写真を追加する関数
+        window.addPhotoToSlideshow = function(filename, photoUrl) {
+            // 既に存在する場合は追加しない
+            if (addedPhotoFilenames.has(filename)) {
+                console.log('Photo already exists:', filename);
+                return;
+            }
+            
+            addedPhotoFilenames.add(filename);
+            currentPhotos.push(filename);
+            
+            console.log('Adding photo to slideshow:', filename);
+            
+            // 写真がない場合のメッセージを削除
+            const noPhotos = document.querySelector('.no-photos');
+            if (noPhotos) {
+                noPhotos.remove();
+            }
+            
+            // 写真グリッドを取得または作成
+            let photoGrid = document.querySelector('.photo-grid');
+            if (!photoGrid) {
+                const container = document.querySelector('.container');
+                photoGrid = document.createElement('div');
+                photoGrid.className = 'photo-grid';
+                const buttonContainer = container.querySelector('.button-container');
+                if (buttonContainer) {
+                    container.insertBefore(photoGrid, buttonContainer);
+                } else {
+                    container.appendChild(photoGrid);
+                }
+            }
+            
+            // 新しい写真要素を作成
+            const photoItem = document.createElement('div');
+            photoItem.className = 'photo-item';
+            photoItem.style.opacity = '0';
+            photoItem.style.transform = 'scale(0.8)';
+            photoItem.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            
+            const img = document.createElement('img');
+            img.src = photoUrl;
+            img.alt = filename;
+            img.onload = function() {
+                this.classList.add('loaded');
+                photoItem.style.opacity = '1';
+                photoItem.style.transform = 'scale(1)';
+            };
+            img.onerror = function() {
+                console.error('Failed to load image:', photoUrl);
+            };
+            
+            photoItem.appendChild(img);
+            
+            // 最初に追加（新しい写真を上に表示）
+            if (photoGrid.firstChild) {
+                photoGrid.insertBefore(photoItem, photoGrid.firstChild);
+            } else {
+                photoGrid.appendChild(photoItem);
+            }
+        };
+        
+        // BroadcastChannel APIで他のタブからの通知を待機
+        try {
+            const channel = new BroadcastChannel('photo_upload');
+            channel.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'photo_uploaded') {
+                    console.log('Received broadcast message:', event.data);
+                    window.addPhotoToSlideshow(event.data.filename, event.data.photo_url);
+                }
+            });
+        } catch (e) {
+            console.log('BroadcastChannel not supported, using polling only');
+        }
+        
+        // LocalStorageの変更を監視（フォールバック）
+        let lastLocalStorageCheck = Date.now();
+        setInterval(function() {
+            try {
+                const lastUpload = localStorage.getItem('last_uploaded_photo');
+                if (lastUpload) {
+                    const uploadData = JSON.parse(lastUpload);
+                    if (uploadData.timestamp > lastLocalStorageCheck) {
+                        lastLocalStorageCheck = uploadData.timestamp;
+                        if (!addedPhotoFilenames.has(uploadData.filename)) {
+                            window.addPhotoToSlideshow(uploadData.filename, uploadData.photo_url);
+                        }
+                    }
+                }
+            } catch (e) {
+                // LocalStorage not available or error
+            }
+        }, 500); // 0.5秒ごとにチェック
+        
+        // 定期的に新しい写真をチェック（ポーリング）- より頻繁に
+        let lastPhotoCount = currentPhotos.length;
+        let pollingInterval = setInterval(function() {
+            // ページが非表示の場合はスキップ
+            if (document.hidden) {
+                return;
+            }
+            
+            fetch('/api/photos')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.photos && data.photos.length > lastPhotoCount) {
+                        console.log('New photos detected via polling:', data.photos.length - lastPhotoCount);
+                        // 新しい写真が追加された
+                        const newPhotos = data.photos.slice(lastPhotoCount);
+                        newPhotos.forEach((filename, index) => {
+                            // 既に追加済みでないか確認
+                            if (!addedPhotoFilenames.has(filename)) {
+                                const photoUrl = data.photo_urls[lastPhotoCount + index];
+                                setTimeout(() => {
+                                    window.addPhotoToSlideshow(filename, photoUrl);
+                                }, index * 50); // 少しずつ表示
+                            }
+                        });
+                        lastPhotoCount = data.photos.length;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching photos:', error);
+                });
+        }, 1000); // 1秒ごとにチェック（より頻繁に）
+        
+        // ページが表示されているときに新しい写真をチェック
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                // ページが表示されたときに最新の写真を取得
+                fetch('/api/photos')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.photos && data.photos.length > lastPhotoCount) {
+                            const newPhotos = data.photos.slice(lastPhotoCount);
+                            newPhotos.forEach((filename, index) => {
+                                if (!addedPhotoFilenames.has(filename)) {
+                                    const photoUrl = data.photo_urls[lastPhotoCount + index];
+                                    setTimeout(() => {
+                                        window.addPhotoToSlideshow(filename, photoUrl);
+                                    }, index * 50);
+                                }
+                            });
+                            lastPhotoCount = data.photos.length;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching photos:', error);
+                    });
+            }
+        });
+        
+        // ページがアンロードされるときにポーリングを停止
+        window.addEventListener('beforeunload', function() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        });
+    </script>
+</body>
+</html>

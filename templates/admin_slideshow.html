@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>管理者用ウェディングスライドショー</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow-x: hidden;
+        }
+
+        .slider-row {
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .top-row {
+            height: 20vh;
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .middle-row {
+            height: 60vh;
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .bottom-row {
+            height: 20vh;
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .slide-track {
+            display: inline-block;
+            white-space: nowrap;
+            will-change: transform;
+        }
+        
+        .slide-track.animate {
+            animation: scroll 40s linear infinite;
+        }
+
+        .slide-track img {
+            display: inline-block;
+            margin: 10px;
+        }
+
+        .top-row img, .bottom-row img {
+            height: calc(20vh - 20px);
+            width: auto;
+        }
+
+        .middle-row img {
+            height: calc(60vh - 20px);
+            width: auto;
+        }
+
+        @keyframes scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        /* アニメーションを無効化するクラス（初期状態） */
+        .slide-track.init {
+            animation: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 上段のスライダー -->
+    <div class="slider-row top-row">
+        <div class="slide-track" id="topTrack">
+            {% for photo in photos %}
+                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+            {% endfor %}
+            {% for photo in photos %}
+                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 中段のスライダー -->
+    <div class="slider-row middle-row">
+        <div class="slide-track" id="middleTrack">
+            {% for photo in photos %}
+                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+            {% endfor %}
+            {% for photo in photos %}
+                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 下段のスライダー -->
+    <div class="slider-row bottom-row">
+        <div class="slide-track" id="bottomTrack">
+            {% for photo in photos %}
+                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+            {% endfor %}
+            {% for photo in photos %}
+                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 現在の写真リストをJSON形式で埋め込み（リアルタイム更新用） -->
+    <script type="application/json" id="photos-data">{% if photos %}{{ photos | tojson }}{% else %}[]{% endif %}</script>
+
+    <script>
+        // 固定のアニメーション速度（秒/ループ）- この値を変えることで速度を調整可能
+        const FIXED_ANIMATION_DURATION = 60; // 60秒で1ループ（1セット分を移動）
+
+        // 埋め込んだ写真リストを取得して現在の状態を保持
+        const photosDataElement = document.getElementById('photos-data');
+        let currentPhotos = [];
+        try {
+            currentPhotos = JSON.parse(photosDataElement.textContent);
+        } catch (e) {
+            console.warn('Failed to parse embedded photo data:', e);
+            currentPhotos = [];
+        }
+
+        let lastPhotoCount = currentPhotos.length;
+        let refreshTimer = null;
+        let lastStorageTimestamp = Date.now();
+
+        function scheduleRefresh() {
+            if (refreshTimer) {
+                return;
+            }
+            refreshTimer = setTimeout(() => {
+                window.location.reload();
+            }, 1200);
+        }
+
+        // BroadcastChannelで他タブからの通知を受け取る
+        try {
+            const channel = new BroadcastChannel('photo_upload');
+            channel.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'photo_uploaded') {
+                    scheduleRefresh();
+                }
+            });
+        } catch (e) {
+            console.log('BroadcastChannel not supported in this browser.');
+        }
+
+        // LocalStorageを使ったフォールバック（同一ブラウザ内）
+        setInterval(() => {
+            try {
+                const stored = localStorage.getItem('last_uploaded_photo');
+                if (!stored) {
+                    return;
+                }
+                const data = JSON.parse(stored);
+                if (!data || !data.filename || !data.timestamp) {
+                    return;
+                }
+                if (data.timestamp > lastStorageTimestamp && !currentPhotos.includes(data.filename)) {
+                    lastStorageTimestamp = data.timestamp;
+                    scheduleRefresh();
+                }
+            } catch (error) {
+                // LocalStorageが使えない場合は無視
+            }
+        }, 2000);
+
+        // サーバーに問い合わせて新しい写真がないか確認（フォールバック）
+        setInterval(() => {
+            fetch('/api/photos')
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error('Network error');
+                    }
+                    return response.json();
+                })
+                .then((data) => {
+                    if (!data || !Array.isArray(data.photos)) {
+                        return;
+                    }
+                    if (data.photos.length > lastPhotoCount) {
+                        scheduleRefresh();
+                    }
+                    lastPhotoCount = data.photos.length;
+                })
+                .catch(() => {
+                    // ネットワークエラー時は何もしない（次回に再試行）
+                });
+        }, 4000);
+ 
+        // 各トラックの画像を適切に複製し、アニメーションを設定
+        function initializeSlideshow() {
+            const tracks = document.querySelectorAll('.slide-track');
+            
+            tracks.forEach((track) => {
+                // 初期状態を設定（アニメーションを無効化）
+                track.classList.add('init');
+                
+                const images = track.querySelectorAll('img');
+                
+                if (images.length === 0) {
+                    // 画像がない場合はアニメーションを開始しない
+                    return;
+                }
+                
+                // すべての画像が読み込まれるまで待つ
+                let loadedCount = 0;
+                const totalImages = images.length;
+                
+                function checkAllLoaded() {
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        // すべての画像が読み込まれたらアニメーションを開始
+                        startAnimation(track);
+                    }
+                }
+                
+                // 既に読み込まれている画像をカウント
+                images.forEach(img => {
+                    if (img.complete) {
+                        checkAllLoaded();
+                    } else {
+                        img.addEventListener('load', checkAllLoaded);
+                        img.addEventListener('error', checkAllLoaded); // エラー時も続行
+                    }
+                });
+                
+                // タイムアウト（5秒後には強制的に開始）
+                setTimeout(() => {
+                    if (track.classList.contains('init')) {
+                        startAnimation(track);
+                    }
+                }, 5000);
+            });
+        }
+        
+        // アニメーションを開始
+        function startAnimation(track) {
+            // 初期状態のクラスを削除
+            track.classList.remove('init');
+            
+            // 固定のアニメーション時間を設定
+            track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+            
+            // アニメーションクラスを追加
+            track.classList.add('animate');
+        }
+        
+        // ページ読み込み時に実行
+        window.addEventListener('load', function() {
+            // DOMが完全に読み込まれてから少し遅延して実行
+            setTimeout(initializeSlideshow, 100);
+        });
+        
+        // ページが表示されているときに実行（戻ってきた時など）
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                // ページが表示されたら、アニメーションが動作しているか確認
+                const tracks = document.querySelectorAll('.slide-track');
+                tracks.forEach(track => {
+                    if (!track.classList.contains('animate') && track.querySelectorAll('img').length > 0) {
+                        startAnimation(track);
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

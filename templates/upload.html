@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>写真アップロード</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        .file-input-container {
+            width: 100%;
+            text-align: center;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .custom-file-upload {
+            border: 2px dashed #3498db;
+            border-radius: 5px;
+            padding: 20px;
+            cursor: pointer;
+            width: 80%;
+            margin: 0 auto;
+            display: inline-block;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+        .custom-file-upload:hover {
+            background-color: #f8f9fa;
+            border-color: #2980b9;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            min-height: 44px; /* タッチターゲットの最小サイズ */
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .slideshow-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 1rem;
+            padding: 10px;
+        }
+        .slideshow-link:hover {
+            text-decoration: underline;
+        }
+
+        /* 写真一覧用の追加スタイル */
+        .gallery-container {
+            max-width: 800px;
+            margin: 20px auto 0;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .gallery-title {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 10px;
+        }
+        .photo-item {
+            aspect-ratio: 1;
+            overflow: hidden;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        .photo-item:hover img {
+            transform: scale(1.05);
+        }
+
+        /* スマホ用のレスポンシブデザイン */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container, .gallery-container {
+                padding: 20px;
+                margin: 10px auto;
+            }
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 20px;
+            }
+            .gallery-title {
+                font-size: 1.2rem;
+            }
+            .custom-file-upload {
+                width: 90%;
+                padding: 15px;
+                font-size: 0.9rem;
+            }
+            button {
+                width: 100%;
+                max-width: 200px;
+                padding: 15px 20px;
+                font-size: 1rem;
+            }
+            .photo-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 10px;
+                padding: 5px;
+            }
+            .slideshow-link {
+                font-size: 0.9rem;
+                padding: 15px;
+            }
+        }
+
+        /* さらに小さい画面用 */
+        @media (max-width: 480px) {
+            .container, .gallery-container {
+                padding: 15px;
+                border-radius: 8px;
+            }
+            h1 {
+                font-size: 1.3rem;
+            }
+            .gallery-title {
+                font-size: 1.1rem;
+            }
+            .custom-file-upload {
+                width: 95%;
+                padding: 12px;
+                font-size: 0.85rem;
+            }
+            .photo-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 8px;
+            }
+            button {
+                padding: 12px 15px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* タッチデバイス用の最適化 */
+        @media (hover: none) {
+            .custom-file-upload:hover {
+                background-color: transparent;
+                border-color: #3498db;
+            }
+            .photo-item:hover img {
+                transform: none;
+            }
+            button:hover {
+                background-color: #3498db;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>写真をアップロード</h1>
+        <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+            <div class="file-input-container">
+                <label for="photo" class="custom-file-upload">
+                    写真を選択
+                </label>
+                <input id="photo" type="file" name="photo" accept="image/*" required>
+            </div>
+            <button type="submit">投稿する</button>
+        </form>
+        <a href="/slideshow" class="slideshow-link">投稿済み写真を見る →</a>
+    </div>
+
+    <!-- 写真一覧を追加 -->
+    <div class="gallery-container">
+        <h2 class="gallery-title">投稿済み</h2>
+        <div class="photo-grid">
+            {% if photos %}
+                {% for photo in photos %}
+                <div class="photo-item">
+                    <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Uploaded photo">
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-photos" style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #666;">
+                    まだ写真がアップロードされていません
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // ファイル選択時のラベル更新
+        document.getElementById('photo').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name;
+            if (fileName) {
+                document.querySelector('.custom-file-upload').textContent = `選択された写真: ${fileName}`;
+            }
+        });
+
+        // フォーム送信をAJAXで処理
+        document.querySelector('.upload-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('photo');
+            
+            if (!fileInput.files[0]) {
+                alert('写真を選択してください');
+                return;
+            }
+            
+            formData.append('photo', fileInput.files[0]);
+            
+            const submitButton = document.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'アップロード中...';
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // ギャラリーに写真を追加
+                    addPhotoToGallery(data.filename, data.photo_url);
+                    
+                    // フォームをリセット
+                    fileInput.value = '';
+                    document.querySelector('.custom-file-upload').textContent = '写真を選択';
+                    
+                    // BroadcastChannel APIを使って他のタブに通知
+                    try {
+                        if (window.uploadChannel) {
+                            window.uploadChannel.postMessage({
+                                type: 'photo_uploaded',
+                                filename: data.filename,
+                                photo_url: data.photo_url
+                            });
+                        } else {
+                            const channel = new BroadcastChannel('photo_upload');
+                            channel.postMessage({
+                                type: 'photo_uploaded',
+                                filename: data.filename,
+                                photo_url: data.photo_url
+                            });
+                            window.uploadChannel = channel;
+                        }
+                    } catch (e) {
+                        console.log('BroadcastChannel not supported, using polling fallback');
+                    }
+                    
+                    // LocalStorageにも保存（フォールバック）
+                    try {
+                        localStorage.setItem('last_uploaded_photo', JSON.stringify({
+                            filename: data.filename,
+                            photo_url: data.photo_url,
+                            timestamp: Date.now()
+                        }));
+                    } catch (e) {
+                        console.log('LocalStorage not available');
+                    }
+                    
+                    // 成功メッセージ
+                    showMessage('写真がアップロードされました！', 'success');
+                } else {
+                    alert('アップロードに失敗しました: ' + (data.error || '不明なエラー'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('アップロード中にエラーが発生しました');
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText;
+            });
+        });
+
+        // ギャラリーに写真を追加する関数
+        function addPhotoToGallery(filename, photoUrl) {
+            const photoGrid = document.querySelector('.photo-grid');
+            if (!photoGrid) return;
+            
+            // 写真がない場合のメッセージを削除
+            const noPhotosMsg = photoGrid.querySelector('.no-photos');
+            if (noPhotosMsg) {
+                noPhotosMsg.remove();
+            }
+            
+            // ギャラリーコンテナが存在することを確認
+            const galleryContainer = document.querySelector('.gallery-container');
+            if (!galleryContainer) return;
+            
+            // 新しい写真要素を作成
+            const photoItem = document.createElement('div');
+            photoItem.className = 'photo-item';
+            photoItem.style.opacity = '0';
+            photoItem.style.transition = 'opacity 0.5s ease';
+            
+            const img = document.createElement('img');
+            img.src = photoUrl;
+            img.alt = 'Uploaded photo';
+            img.onload = function() {
+                photoItem.style.opacity = '1';
+            };
+            
+            photoItem.appendChild(img);
+            photoGrid.insertBefore(photoItem, photoGrid.firstChild);
+        }
+
+        // メッセージを表示する関数
+        function showMessage(message, type) {
+            // 既存のメッセージを削除
+            const existingMessage = document.querySelector('.upload-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'upload-message';
+            messageDiv.textContent = message;
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                background-color: ${type === 'success' ? '#4CAF50' : '#f44336'};
+                color: white;
+                border-radius: 5px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            document.body.appendChild(messageDiv);
+            
+            // 3秒後に自動的に削除
+            setTimeout(() => {
+                messageDiv.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => messageDiv.remove(), 300);
+            }, 3000);
+        }
+
+        // アニメーション用のCSSを追加
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html> 
