@@ -208,7 +208,6 @@ def admin_dashboard():
         'admin_dashboard.html',
         photos=photos_data,
         result_config=result_config,
-        result_config_json=json.dumps(result_config, ensure_ascii=False),
         result_order_map=order_map
     )
 
