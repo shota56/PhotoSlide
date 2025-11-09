@@ -275,7 +275,8 @@
             const firstSetLength = recentPhotos.length;
             const shouldLoop = firstSetLength >= 10;
             middleTrack.dataset.firstSetLength = firstSetLength;
-            middleTrack.dataset.loopEnabled = shouldLoop ? '1' : '0';
+            const enableLoop = firstSetLength > 0;
+            middleTrack.dataset.loopEnabled = enableLoop ? '1' : '0';
 
             if (!firstSetLength) {
                 middleTrack.classList.remove('animate');
@@ -290,18 +291,14 @@
             });
             middleTrack.appendChild(fragment);
 
-            if (shouldLoop) {
-                const duplicateFragment = document.createDocumentFragment();
-                recentPhotos.forEach((photo, index) => {
-                    const url = recentPhotoUrls[index] || buildPhotoUrl(photo);
-                    duplicateFragment.appendChild(createImageElement(url, photo));
-                });
-                middleTrack.appendChild(duplicateFragment);
-                restartTrackAnimation(middleTrack);
-            } else {
-                middleTrack.classList.remove('animate');
-                middleTrack.style.animation = 'none';
-            }
+            const duplicateFragment = document.createDocumentFragment();
+            recentPhotos.forEach((photo, index) => {
+                const url = recentPhotoUrls[index] || buildPhotoUrl(photo);
+                duplicateFragment.appendChild(createImageElement(url, photo));
+            });
+            middleTrack.appendChild(duplicateFragment);
+            restartTrackAnimation(middleTrack);
+
         }
 
         function renderTopTrack() {
@@ -310,9 +307,9 @@
             }
             topTrack.innerHTML = '';
             const firstSetLength = topPhotos.length;
-            const shouldLoop = firstSetLength >= 20;
+            const enableLoop = firstSetLength > 0;
             topTrack.dataset.firstSetLength = firstSetLength;
-            topTrack.dataset.loopEnabled = shouldLoop ? '1' : '0';
+            topTrack.dataset.loopEnabled = enableLoop ? '1' : '0';
 
             if (!firstSetLength) {
                 topTrack.classList.remove('animate');
@@ -327,18 +324,14 @@
             });
             topTrack.appendChild(fragment);
 
-            if (shouldLoop) {
-                const duplicateFragment = document.createDocumentFragment();
-                topPhotos.forEach((photo, index) => {
-                    const url = topPhotoUrls[index] || buildPhotoUrl(photo);
-                    duplicateFragment.appendChild(createImageElement(url, photo));
-                });
-                topTrack.appendChild(duplicateFragment);
-                restartTrackAnimation(topTrack);
-            } else {
-                topTrack.classList.remove('animate');
-                topTrack.style.animation = 'none';
-            }
+            const duplicateFragment = document.createDocumentFragment();
+            topPhotos.forEach((photo, index) => {
+                const url = topPhotoUrls[index] || buildPhotoUrl(photo);
+                duplicateFragment.appendChild(createImageElement(url, photo));
+            });
+            topTrack.appendChild(duplicateFragment);
+            restartTrackAnimation(topTrack);
+
         }
 
         function tryIncrementalShift(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {

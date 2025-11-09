@@ -4,6 +4,7 @@ from functools import wraps
 from datetime import datetime
 import os
 import json
+import uuid
 
 
 app = Flask(__name__)
@@ -188,14 +189,19 @@ def admin_logout():
 @admin_required
 def admin_dashboard():
     photos = get_photos(sort_by='upload')
-    photos_data = [
-        {
-            'id': idx + 1,
+    if not getattr(app, '_photo_uuid_map', None):
+        app._photo_uuid_map = {}
+    photos_data = []
+    for filename in photos:
+        photo_uuid = app._photo_uuid_map.get(filename)
+        if not photo_uuid:
+            photo_uuid = uuid.uuid4().hex
+            app._photo_uuid_map[filename] = photo_uuid
+        photos_data.append({
+            'id': photo_uuid,
             'filename': filename,
             'url': url_for('serve_upload', filename=filename)
-        }
-        for idx, filename in enumerate(photos)
-    ]
+        })
     result_config = load_result_config()
     order_map = {cat_id: idx + 1 for idx, cat_id in enumerate(result_config['order'])}
     return render_template(
@@ -240,15 +246,26 @@ def create_ranking():
     return redirect(url_for('admin_dashboard'))
 
 # 写真削除
-@app.route('/admin/delete/<int:photo_id>', methods=['POST'])
+@app.route('/admin/delete/<path:photo_identifier>', methods=['POST'])
 @admin_required
-def delete_photo(photo_id):
+def delete_photo(photo_identifier):
+    filename = None
     photos = get_photos()
-    if 0 < photo_id <= len(photos):
-        filename = photos[photo_id - 1]
+    if photo_identifier in photos:
+        filename = photo_identifier
+    else:
+        stored_map = getattr(app, '_photo_uuid_map', {})
+        for candidate, uuid_value in stored_map.items():
+            if uuid_value == photo_identifier:
+                filename = candidate
+                break
+
+    if filename and filename in photos:
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         if os.path.exists(filepath):
             os.remove(filepath)
+            if getattr(app, '_photo_uuid_map', None):
+                app._photo_uuid_map.pop(filename, None)
             flash('写真を削除しました', 'success')
         else:
             flash('ファイルが見つかりませんでした', 'error')

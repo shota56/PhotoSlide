@@ -219,7 +219,7 @@
             <div class="photo-item" data-filename="{{ photo.filename }}">
                 <img src="{{ photo.url }}" alt="{{ photo.filename }}">
                 <div class="photo-controls">
-                    <form method="post" action="{{ url_for('delete_photo', photo_id=photo.id) }}" 
+                    <form method="post" action="{{ url_for('delete_photo', photo_identifier=photo.filename) }}" 
                           style="display: inline;"
                           onsubmit="return confirm('本当に削除しますか？');">
                         <button type="submit" class="delete-btn">削除</button>
