@@ -121,14 +121,26 @@
             });
         }
 
+        function goNext() {
+            if (currentIndex < slides.length - 1) {
+                currentIndex += 1;
+                showSlide(currentIndex);
+            }
+        }
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Enter' || event.key === 'NumpadEnter') {
                 event.preventDefault();
-                if (currentIndex < slides.length - 1) {
-                    currentIndex += 1;
-                    showSlide(currentIndex);
-                }
+                goNext();
             }
+        });
+
+        document.addEventListener('click', () => {
+            goNext();
+        });
+
+        document.addEventListener('touchend', () => {
+            goNext();
         });
     </script>
 </body>

@@ -53,16 +53,19 @@
 
         .slide-track img {
             display: inline-block;
-            margin: 10px;
+            margin: 8px;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
         }
 
         .top-row img {
-            height: calc(35vh - 20px);
+            height: calc(28vh - 16px);
             width: auto;
         }
 
         .middle-row img {
-            height: calc(65vh - 20px);
+            height: calc(50vh - 16px);
             width: auto;
         }
 
@@ -135,20 +138,20 @@
              topPhotoUrls = Array.isArray(parsed.topPhotoUrls) ? parsed.topPhotoUrls.slice() : [];
              recentPhotos = Array.isArray(parsed.recentPhotos) ? parsed.recentPhotos.slice() : [];
              recentPhotoUrls = Array.isArray(parsed.recentPhotoUrls) ? parsed.recentPhotoUrls.slice() : [];
-         } catch (e) {
+        } catch (e) {
              console.warn('Failed to parse slideshow config:', e);
-             currentPhotos = [];
+            currentPhotos = [];
              currentPhotoUrls = [];
              topPhotos = [];
              topPhotoUrls = [];
              recentPhotos = [];
              recentPhotoUrls = [];
-         }
+        }
 
-         let lastPhotoCount = currentPhotos.length;
-         let refreshTimer = null;
+        let lastPhotoCount = currentPhotos.length;
+        let refreshTimer = null;
          let fetchInProgress = false;
-         let lastStorageTimestamp = Date.now();
+        let lastStorageTimestamp = Date.now();
          let topTrack = document.getElementById('topTrack');
          const middleTrack = document.getElementById('middleTrack');
         let pollTimer = null;
@@ -169,9 +172,9 @@
             currentPollInterval = Math.min(MAX_POLL_INTERVAL, Math.round(currentPollInterval * POLL_GROWTH_FACTOR));
         }
 
-        function requestImmediateRefresh() {
+        function requestImmediateRefresh(silent = false) {
             resetPollIntervalToMinimum();
-            scheduleNextPoll(0);
+            fetchLatestPhotos(silent);
         }
 
         function scheduleRefresh() {
@@ -213,7 +216,7 @@
             }
         }, 2000);
 
-        function fetchLatestPhotos() {
+        function fetchLatestPhotos(silent = false) {
             if (fetchInProgress) {
                 return;
             }
@@ -241,7 +244,9 @@
                 })
                 .finally(() => {
                     fetchInProgress = false;
-                    scheduleNextPoll();
+                    if (!silent) {
+                        scheduleNextPoll();
+                    }
                 });
         }
 
@@ -302,20 +307,31 @@
         }
 
         function renderTopTrack() {
+            if (!topPhotos.length) {
+                if (topTrack) {
+                    topTrack.parentElement.remove();
+                    topTrack = null;
+                    document.body.classList.add('single-lane');
+                }
+                return;
+            }
+
+            if (!topTrack) {
+                insertTopLaneSkeleton();
+                topTrack = document.getElementById('topTrack');
+                renderRecentTrack();
+            }
+
             if (!topTrack) {
                 return;
             }
+
+            document.body.classList.remove('single-lane');
+
             topTrack.innerHTML = '';
             const firstSetLength = topPhotos.length;
-            const enableLoop = firstSetLength > 0;
             topTrack.dataset.firstSetLength = firstSetLength;
-            topTrack.dataset.loopEnabled = enableLoop ? '1' : '0';
-
-            if (!firstSetLength) {
-                topTrack.classList.remove('animate');
-                topTrack.style.animation = 'none';
-                return;
-            }
+            topTrack.dataset.loopEnabled = '1';
 
             const fragment = document.createDocumentFragment();
             topPhotos.forEach((photo, index) => {
@@ -332,6 +348,7 @@
             topTrack.appendChild(duplicateFragment);
             restartTrackAnimation(topTrack);
 
+            renderRecentTrack();
         }
 
         function tryIncrementalShift(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
