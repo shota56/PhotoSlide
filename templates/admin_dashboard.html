@@ -232,7 +232,7 @@
 
     <script>
         const uploadsBaseUrl = "{{ url_for('serve_upload', filename='__PLACEHOLDER__') }}".replace('__PLACEHOLDER__', '');
-        const initialConfig = {{ result_config|tojson }};
+        const initialConfig = {{ result_config|tojson|safe }};
 
         const categoriesState = new Map();
         const orderUsage = new Map();
