@@ -1,770 +1,537 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="utf-8">
-    <title>管理者スライドショー</title>
+    <title>管理者用ウェディングスライドショー</title>
     <style>
-        :root {
-            --bg-color: #000000;
-            --fg-color: #f5f5f5;
-            --accent-color: #4dabf7;
-            --muted-color: rgba(255, 255, 255, 0.6);
-            --card-bg: rgba(20, 20, 20, 0.8);
-            --thumb-bg: rgba(255, 255, 255, 0.08);
-            --thumb-border: rgba(255, 255, 255, 0.3);
-            --notification-bg: rgba(0, 0, 0, 0.8);
-        }
-
-        body.theme-light {
-            --bg-color: #f5f5f5;
-            --fg-color: #1c1c1c;
-            --accent-color: #1971c2;
-            --muted-color: rgba(0, 0, 0, 0.6);
-            --card-bg: rgba(255, 255, 255, 0.9);
-            --thumb-bg: rgba(0, 0, 0, 0.05);
-            --thumb-border: rgba(0, 0, 0, 0.15);
-            --notification-bg: rgba(255, 255, 255, 0.92);
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
         body {
             margin: 0;
             padding: 0;
-            background: var(--bg-color);
-            color: var(--fg-color);
-            font-family: "Helvetica Neue", Arial, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            background: #000;
+            overflow-x: hidden;
         }
 
-        .slideshow-app {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        .slideshow-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 32px;
-            backdrop-filter: blur(12px);
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
-        }
-
-        body.theme-light .slideshow-header {
-            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0));
-        }
-
-        .slideshow-title {
-            font-size: 24px;
-            margin: 0;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
-
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .control-button {
-            padding: 10px 16px;
-            border-radius: 20px;
-            border: 1px solid var(--thumb-border);
-            background: var(--card-bg);
-            color: var(--fg-color);
-            font-size: 14px;
-            cursor: pointer;
-            transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-            min-width: 120px;
-        }
-
-        .control-button:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent-color);
-        }
-
-        .control-button:focus-visible {
-            outline: 2px solid var(--accent-color);
-            outline-offset: 2px;
-        }
-
-        .slideshow-main {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 24px 32px 0;
-        }
-
-        .stage {
-            position: relative;
-            width: min(90vw, 1400px);
-            height: min(60vw, 65vh);
-            border-radius: 24px;
-            overflow: hidden;
-            background: var(--card-bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .stage-image {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.8s ease-in-out;
-        }
-
-        .stage-image.is-visible {
-            opacity: 1;
-        }
-
-        .stage-image img {
-            max-width: 100%;
-            max-height: 100%;
+        .slider-row {
             width: 100%;
-            height: 100%;
-            object-fit: contain;
-            background: rgba(0, 0, 0, 0.3);
-        }
-
-        .info-panel {
-            position: absolute;
-            left: 24px;
-            bottom: 24px;
-            background: rgba(0, 0, 0, 0.55);
-            color: #fff;
-            padding: 16px 20px;
-            border-radius: 14px;
-            max-width: 60%;
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        }
-
-        body.theme-light .info-panel {
-            background: rgba(255, 255, 255, 0.88);
-            color: #202020;
-            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.18);
-        }
-
-        .info-panel.is-hidden {
-            opacity: 0;
-            transform: translateY(12px);
-            pointer-events: none;
-        }
-
-        .info-primary {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            word-break: break-all;
-        }
-
-        .info-secondary {
-            font-size: 14px;
-            color: var(--muted-color);
-        }
-
-        .notification {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            padding: 14px 18px;
-            border-radius: 16px;
-            background: var(--notification-bg);
-            color: var(--fg-color);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-            opacity: 0;
-            transform: translateY(-12px);
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            pointer-events: none;
-        }
-
-        .notification.is-visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .thumbnails {
-            padding: 24px 32px 32px;
-        }
-
-        .thumbnail-strip {
-            display: grid;
-            grid-auto-flow: column;
-            grid-auto-columns: minmax(140px, 1fr);
-            gap: 12px;
-            overflow-x: auto;
-            padding-bottom: 8px;
-            scrollbar-width: thin;
-            scrollbar-color: var(--accent-color) rgba(255, 255, 255, 0.08);
-        }
-
-        .thumbnail-strip::-webkit-scrollbar {
-            height: 8px;
-        }
-
-        .thumbnail-strip::-webkit-scrollbar-thumb {
-            background: var(--accent-color);
-            border-radius: 999px;
-        }
-
-        .thumb {
-            position: relative;
-            border: 2px solid transparent;
-            border-radius: 16px;
             overflow: hidden;
-            background: var(--thumb-bg);
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-            padding: 8px;
-            cursor: pointer;
-            transition: border-color 0.2s ease, transform 0.2s ease;
-            min-height: 140px;
-        }
-
-        .thumb:hover {
-            transform: translateY(-4px);
-            border-color: var(--accent-color);
-        }
-
-        .thumb.is-active {
-            border-color: var(--accent-color);
-            box-shadow: 0 10px 18px rgba(0, 0, 0, 0.3);
-        }
-
-        .thumb img {
-            width: 100%;
-            aspect-ratio: 4 / 3;
-            object-fit: cover;
-            border-radius: 10px;
-            background: rgba(0, 0, 0, 0.4);
-            margin-bottom: 8px;
-        }
-
-        .thumb-label {
-            font-size: 12px;
-            color: var(--muted-color);
+            position: relative;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
-        .thumb-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: var(--accent-color);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 8px;
-            border-radius: 999px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            display: none;
+        .top-row {
+            height: 35vh;
+            background: rgba(0, 0, 0, 0.85);
         }
 
-        .thumb.is-new .thumb-badge {
-            display: inline-flex;
+        .middle-row {
+            height: 65vh;
+            background: rgba(0, 0, 0, 0.92);
         }
 
-        .empty-state {
-            margin: auto;
-            text-align: center;
-            padding: 48px;
-            color: var(--muted-color);
+        .slide-track {
+            display: inline-block;
+            white-space: nowrap;
+            will-change: transform;
+        }
+        
+        .slide-track.animate {
+            animation: scroll 40s linear infinite;
         }
 
-        .slideshow-footer {
-            padding: 12px 32px 24px;
-            text-align: center;
-            color: var(--muted-color);
-            font-size: 13px;
-            letter-spacing: 0.04em;
+        .slide-track img {
+            display: inline-block;
+            margin: 10px;
         }
 
-        @media (max-width: 1024px) {
-            .slideshow-header {
-                flex-direction: column;
-                gap: 14px;
-                align-items: flex-start;
-            }
-
-            .slideshow-main {
-                padding: 16px 20px 0;
-            }
-
-            .stage {
-                width: 100%;
-                height: 60vh;
-                border-radius: 16px;
-            }
-
-            .control-group {
-                gap: 8px;
-            }
+        .top-row img {
+            height: calc(35vh - 20px);
+            width: auto;
         }
 
-        @media (max-width: 768px) {
-            .slideshow-title {
-                font-size: 20px;
-            }
+        .middle-row img {
+            height: calc(65vh - 20px);
+            width: auto;
+        }
 
-            .control-button {
-                flex: 1 1 calc(50% - 12px);
-            }
-
-            .thumbnail-strip {
-                grid-auto-columns: minmax(120px, 45vw);
-            }
-
-            .stage {
-                height: 52vh;
-            }
+        @keyframes scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        /* アニメーションを無効化するクラス（初期状態） */
+        .slide-track.init {
+            animation: none;
         }
     </style>
 </head>
-<body class="theme-dark">
-    <div class="slideshow-app">
-        <header class="slideshow-header">
-            <h1 class="slideshow-title">管理者スライドショー</h1>
-            <div class="control-group">
-                <button type="button" class="control-button" id="playToggle">一時停止</button>
-                <button type="button" class="control-button" id="infoToggle">情報オフ</button>
-                <button type="button" class="control-button" id="themeToggle">ライトモード</button>
-                <button type="button" class="control-button" id="fullscreenToggle">フルスクリーン</button>
-            </div>
-        </header>
+<body>
+    <!-- 上段のスライダー -->
+    <div class="slider-row top-row">
+        <div class="slide-track" id="topTrack" data-first-set-length="{{ photos_top|length }}">
+            {% for photo in photos_top %}
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
+            {% endfor %}
+            {% for photo in photos_top %}
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
+            {% endfor %}
+        </div>
+    </div>
 
-        <main class="slideshow-main">
-            {% if photo_details %}
-            <div class="stage" id="slideStage">
-                <div class="stage-image is-visible" id="currentFrame">
-                    <img id="currentImage" src="{{ photo_details[0].url }}" alt="{{ photo_details[0].filename }}">
-                </div>
-                <div class="stage-image" id="nextFrame">
-                    <img id="nextImage" alt="">
-                </div>
-                <div class="info-panel" id="infoPanel">
-                    <div class="info-primary" id="infoFilename">{{ photo_details[0].filename }}</div>
-                    <div class="info-secondary" id="infoTimestamp"></div>
-                </div>
-                <div class="notification" id="newToast" role="status" aria-live="polite"></div>
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <p>まだ写真がアップロードされていません。</p>
-                <p>アップロードされるとここにスライドショーが表示されます。</p>
-            </div>
-            {% endif %}
-        </main>
-
-        <section class="thumbnails" id="thumbnailSection">
-            <div class="thumbnail-strip" id="thumbnailStrip" aria-label="サムネイル一覧">
-                {% for item in photo_details %}
-                <button type="button" class="thumb {% if loop.first %}is-active{% endif %}" data-index="{{ loop.index0 }}">
-                    <span class="thumb-badge">NEW</span>
-                    <img src="{{ item.url }}" alt="{{ item.filename }}">
-                    <span class="thumb-label">{{ item.filename }}</span>
-                </button>
-                {% endfor %}
-            </div>
-        </section>
-
-        <footer class="slideshow-footer">
-            スペース: 再生 / 停止・← / →: 前 / 次の写真・F: 全画面・I: 情報表示・B: 背景切替
-        </footer>
+    <!-- 下段のスライダー -->
+    <div class="slider-row middle-row">
+        <div class="slide-track" id="middleTrack" data-first-set-length="{{ photos_recent|length }}">
+            {% for photo in photos_recent %}
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
+            {% endfor %}
+            {% for photo in photos_recent %}
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
+            {% endfor %}
+        </div>
     </div>
 
     <script type="application/json" id="slideshow-data">
         {{ {
-            'photoDetails': photo_details
+            'photos': photos,
+            'photoUrls': photo_urls,
+            'topPhotos': photos_top,
+            'topPhotoUrls': top_photo_urls,
+            'recentPhotos': photos_recent,
+            'recentPhotoUrls': recent_photo_urls
         } | tojson }}
     </script>
 
     <script>
+        const FIXED_ANIMATION_DURATION = 120;
         const configElement = document.getElementById('slideshow-data');
-        const currentFrame = document.getElementById('currentFrame');
-        const nextFrame = document.getElementById('nextFrame');
-        const currentImage = document.getElementById('currentImage');
-        const nextImage = document.getElementById('nextImage');
-        const infoPanel = document.getElementById('infoPanel');
-        const infoFilename = document.getElementById('infoFilename');
-        const infoTimestamp = document.getElementById('infoTimestamp');
-        const playToggle = document.getElementById('playToggle');
-        const infoToggle = document.getElementById('infoToggle');
-        const themeToggle = document.getElementById('themeToggle');
-        const fullscreenToggle = document.getElementById('fullscreenToggle');
-        const thumbnailStrip = document.getElementById('thumbnailStrip');
-        const newToast = document.getElementById('newToast');
-        const SLIDE_DURATION = 5000;
-        const FADE_DURATION = 800;
-        const TOAST_DURATION = 2500;
+        const uploadsBaseUrl = "{{ url_for('serve_upload', filename='__PLACEHOLDER__') }}".replace('__PLACEHOLDER__', '');
+        const MIN_POLL_INTERVAL = 4000;
+        const MAX_POLL_INTERVAL = 30000;
+        const POLL_GROWTH_FACTOR = 1.6;
+        let currentPhotos = [];
+        let currentPhotoUrls = [];
+        let topPhotos = [];
+        let topPhotoUrls = [];
+        let recentPhotos = [];
+        let recentPhotoUrls = [];
+        try {
+            const parsed = JSON.parse(configElement.textContent);
+            currentPhotos = Array.isArray(parsed.photos) ? parsed.photos.slice() : [];
+            currentPhotoUrls = Array.isArray(parsed.photoUrls) ? parsed.photoUrls.slice() : [];
+            topPhotos = Array.isArray(parsed.topPhotos) ? parsed.topPhotos.slice() : [];
+            topPhotoUrls = Array.isArray(parsed.topPhotoUrls) ? parsed.topPhotoUrls.slice() : [];
+            recentPhotos = Array.isArray(parsed.recentPhotos) ? parsed.recentPhotos.slice() : [];
+            recentPhotoUrls = Array.isArray(parsed.recentPhotoUrls) ? parsed.recentPhotoUrls.slice() : [];
+        } catch (e) {
+            console.warn('Failed to parse slideshow config:', e);
+            currentPhotos = [];
+            currentPhotoUrls = [];
+            topPhotos = [];
+            topPhotoUrls = [];
+            recentPhotos = [];
+            recentPhotoUrls = [];
+        }
 
-        let slideTimer = null;
-        let isPlaying = true;
-        let infoVisible = true;
-        let currentIndex = 0;
-        let fetchInProgress = false;
+        let lastPhotoCount = currentPhotos.length;
         let refreshTimer = null;
-        let toastTimer = null;
+        let fetchInProgress = false;
         let lastStorageTimestamp = Date.now();
+        const topTrack = document.getElementById('topTrack');
+        const middleTrack = document.getElementById('middleTrack');
+        let pollTimer = null;
+        let currentPollInterval = MIN_POLL_INTERVAL;
 
-        const state = {
-            photoDetails: [],
-            theme: 'dark'
-        };
-
-        function parseConfig() {
-            if (!configElement) return;
-            try {
-                const parsed = JSON.parse(configElement.textContent || '{}');
-                const details = Array.isArray(parsed.photoDetails) ? parsed.photoDetails : [];
-                state.photoDetails = details.map((item) => ({
-                    filename: item.filename,
-                    url: item.url,
-                    uploadedAtRaw: item.uploaded_at || null,
-                    uploadedAt: item.uploaded_at ? new Date(item.uploaded_at) : null,
-                    isNew: false
-                }));
-            } catch (error) {
-                console.warn('Failed to parse slideshow data', error);
-                state.photoDetails = [];
+        function scheduleNextPoll(delay = currentPollInterval) {
+            if (pollTimer) {
+                clearTimeout(pollTimer);
             }
+            pollTimer = setTimeout(() => fetchLatestPhotos(), Math.max(0, delay));
         }
 
-        function formatTimestamp(date) {
-            if (!date) return '';
-            return new Intl.DateTimeFormat('ja-JP', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            }).format(date);
+        function resetPollIntervalToMinimum() {
+            currentPollInterval = MIN_POLL_INTERVAL;
         }
 
-        function updateInfo(detail) {
-            if (!detail || !infoPanel) return;
-            infoFilename.textContent = detail.filename || '';
-            infoTimestamp.textContent = detail.uploadedAt ? `投稿: ${formatTimestamp(detail.uploadedAt)}` : '';
+        function backoffPollInterval() {
+            currentPollInterval = Math.min(MAX_POLL_INTERVAL, Math.round(currentPollInterval * POLL_GROWTH_FACTOR));
         }
 
-        function setThumbnailActive(index) {
-            if (!thumbnailStrip) return;
-            const thumbs = thumbnailStrip.querySelectorAll('.thumb');
-            thumbs.forEach((thumb, idx) => {
-                if (idx === index) {
-                    thumb.classList.add('is-active');
-                    thumb.classList.remove('is-new');
-                } else {
-                    thumb.classList.remove('is-active');
-                }
-            });
-        }
-
-        function showSlide(index, { immediate = false } = {}) {
-            const details = state.photoDetails;
-            if (!details.length || !currentFrame || !currentImage) return;
-
-            const normalized = ((index % details.length) + details.length) % details.length;
-            const detail = details[normalized];
-
-            if (!immediate && detail.url === currentImage.src) {
-                currentIndex = normalized;
-                return;
-            }
-
-            if (immediate) {
-                currentImage.src = detail.url;
-                currentImage.alt = detail.filename || 'Photo';
-                currentFrame.classList.add('is-visible');
-                nextFrame?.classList.remove('is-visible');
-            } else if (nextFrame && nextImage) {
-                nextImage.src = detail.url;
-                nextImage.alt = detail.filename || 'Photo';
-                nextFrame.classList.add('is-visible');
-                currentFrame.classList.remove('is-visible');
-                setTimeout(() => {
-                    currentImage.src = detail.url;
-                    currentImage.alt = detail.filename || 'Photo';
-                    currentFrame.classList.add('is-visible');
-                    nextFrame.classList.remove('is-visible');
-                }, FADE_DURATION);
-            }
-
-            detail.isNew = false;
-            updateInfo(detail);
-            setThumbnailActive(normalized);
-            currentIndex = normalized;
-        }
-
-        function renderThumbnails() {
-            if (!thumbnailStrip) return;
-            thumbnailStrip.innerHTML = '';
-            state.photoDetails.forEach((detail, index) => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'thumb';
-                if (index === currentIndex) {
-                    button.classList.add('is-active');
-                }
-                if (detail.isNew) {
-                    button.classList.add('is-new');
-                }
-                button.dataset.index = index.toString();
-
-                const badge = document.createElement('span');
-                badge.className = 'thumb-badge';
-                badge.textContent = 'NEW';
-                button.appendChild(badge);
-
-                const img = document.createElement('img');
-                img.src = detail.url;
-                img.alt = detail.filename || 'thumbnail';
-                button.appendChild(img);
-
-                const label = document.createElement('span');
-                label.className = 'thumb-label';
-                label.textContent = detail.filename || '';
-                button.appendChild(label);
-
-                button.addEventListener('click', () => {
-                    pauseSlideshow();
-                    showSlide(index);
-                });
-
-                thumbnailStrip.appendChild(button);
-            });
-        }
-
-        function startSlideshow() {
-            if (slideTimer || state.photoDetails.length <= 1) return;
-            slideTimer = setInterval(() => {
-                showSlide(currentIndex + 1);
-            }, SLIDE_DURATION);
-            isPlaying = true;
-            if (playToggle) playToggle.textContent = '一時停止';
-        }
-
-        function pauseSlideshow() {
-            if (slideTimer) {
-                clearInterval(slideTimer);
-                slideTimer = null;
-            }
-            isPlaying = false;
-            if (playToggle) playToggle.textContent = '再生';
-        }
-
-        function togglePlayState() {
-            if (isPlaying) {
-                pauseSlideshow();
-            } else {
-                startSlideshow();
-            }
-        }
-
-        function toggleInfoPanel() {
-            infoVisible = !infoVisible;
-            infoPanel?.classList.toggle('is-hidden', !infoVisible);
-            if (infoToggle) infoToggle.textContent = infoVisible ? '情報オフ' : '情報オン';
-        }
-
-        function applyTheme(theme) {
-            state.theme = theme;
-            document.body.classList.toggle('theme-light', theme === 'light');
-            if (themeToggle) themeToggle.textContent = theme === 'light' ? 'ダークモード' : 'ライトモード';
-        }
-
-        function toggleTheme() {
-            applyTheme(state.theme === 'dark' ? 'light' : 'dark');
-        }
-
-        function toggleFullscreen() {
-            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(() => {});
-            } else if (document.exitFullscreen) {
-                document.exitFullscreen().catch(() => {});
-            }
-        }
-
-        function showToast(message) {
-            if (!newToast) return;
-            newToast.textContent = message;
-            newToast.classList.add('is-visible');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => {
-                newToast.classList.remove('is-visible');
-            }, TOAST_DURATION);
+        function requestImmediateRefresh() {
+            resetPollIntervalToMinimum();
+            scheduleNextPoll(0);
         }
 
         function scheduleRefresh() {
-            if (refreshTimer) return;
+            if (refreshTimer) {
+                return;
+            }
             refreshTimer = setTimeout(() => {
                 refreshTimer = null;
-                fetchLatestPhotos();
+                requestImmediateRefresh();
             }, 600);
         }
 
-        function handlePhotoListUpdate(detailsPayload) {
-            if (!Array.isArray(detailsPayload)) return;
-            const incoming = detailsPayload.map((item) => ({
-                filename: item.filename,
-                url: item.url,
-                uploadedAtRaw: item.uploaded_at || null,
-                uploadedAt: item.uploaded_at ? new Date(item.uploaded_at) : null,
-                isNew: false
-            }));
-
-            if (incoming.length < state.photoDetails.length) {
-                window.location.reload();
-                return;
-            }
-
-            if (incoming.length === state.photoDetails.length) {
-                incoming.forEach((item, index) => {
-                    const existing = state.photoDetails[index];
-                    if (existing) {
-                        existing.url = item.url;
-                        existing.uploadedAt = item.uploadedAt;
-                        existing.uploadedAtRaw = item.uploadedAtRaw;
-                    }
-                });
-                return;
-            }
-
-            const additions = incoming.slice(state.photoDetails.length);
-            additions.forEach((detail) => {
-                detail.isNew = true;
-                state.photoDetails.push(detail);
+        try {
+            const channel = new BroadcastChannel('photo_upload');
+            channel.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'photo_uploaded') {
+                    scheduleRefresh();
+                }
             });
-            renderThumbnails();
-            showToast(`${additions.length}枚の新しい写真が追加されました`);
+        } catch (e) {
+            console.log('BroadcastChannel not supported in this browser.');
         }
 
+        setInterval(() => {
+            try {
+                const stored = localStorage.getItem('last_uploaded_photo');
+                if (!stored) {
+                    return;
+                }
+                const data = JSON.parse(stored);
+                if (!data || !data.filename || !data.timestamp) {
+                    return;
+                }
+                if (data.timestamp > lastStorageTimestamp && !currentPhotos.includes(data.filename)) {
+                    lastStorageTimestamp = data.timestamp;
+                    requestImmediateRefresh();
+                }
+            } catch (error) {
+            }
+        }, 2000);
+
         function fetchLatestPhotos() {
-            if (fetchInProgress) return;
+            if (fetchInProgress) {
+                return;
+            }
             fetchInProgress = true;
             fetch('/api/photos')
                 .then((response) => {
-                    if (!response.ok) throw new Error('Network error');
+                    if (!response.ok) {
+                        throw new Error('Network error');
+                    }
                     return response.json();
                 })
                 .then((data) => {
-                    if (!data || !Array.isArray(data.photo_details)) return;
-                    handlePhotoListUpdate(data.photo_details);
+                    if (!data || !Array.isArray(data.photos)) {
+                        return;
+                    }
+                    const hasUpdates = handlePhotoListUpdate(data);
+                    if (hasUpdates) {
+                        resetPollIntervalToMinimum();
+                    } else {
+                        backoffPollInterval();
+                    }
                 })
-                .catch(() => {})
+                .catch(() => {
+                    backoffPollInterval();
+                })
                 .finally(() => {
                     fetchInProgress = false;
+                    scheduleNextPoll();
                 });
         }
 
-        function setupRealtimeListeners() {
-            try {
-                const channel = new BroadcastChannel('photo_upload');
-                channel.addEventListener('message', (event) => {
-                    if (event.data && event.data.type === 'photo_uploaded') {
-                        scheduleRefresh();
-                    }
-                });
-            } catch (error) {
-                console.log('BroadcastChannel not supported');
+        function buildPhotoUrl(filename) {
+            if (!filename) {
+                return '';
             }
-
-            setInterval(() => {
-                try {
-                    const stored = localStorage.getItem('last_uploaded_photo');
-                    if (!stored) return;
-                    const data = JSON.parse(stored);
-                    if (!data || !data.filename || !data.timestamp) return;
-                    if (data.timestamp > lastStorageTimestamp) {
-                        lastStorageTimestamp = data.timestamp;
-                        scheduleRefresh();
-                    }
-                } catch (error) {}
-            }, 2500);
-
-            setInterval(fetchLatestPhotos, 5000);
+            return `${uploadsBaseUrl}${encodeURIComponent(filename)}`;
         }
 
-        function handleKeyboardShortcuts(event) {
-            if (event.target && ['INPUT', 'TEXTAREA'].includes(event.target.tagName)) return;
-            switch (event.key.toLowerCase()) {
-                case ' ':
-                    event.preventDefault();
-                    togglePlayState();
-                    break;
-                case 'arrowright':
-                    pauseSlideshow();
-                    showSlide(currentIndex + 1);
-                    break;
-                case 'arrowleft':
-                    pauseSlideshow();
-                    showSlide(currentIndex - 1);
-                    break;
-                case 'f':
-                    toggleFullscreen();
-                    break;
-                case 'i':
-                    toggleInfoPanel();
-                    break;
-                case 'b':
-                    toggleTheme();
-                    break;
-                default:
-                    break;
+        function arraysEqual(a, b) {
+            if (!Array.isArray(a) || !Array.isArray(b)) {
+                return false;
             }
+            if (a.length !== b.length) {
+                return false;
+            }
+            for (let i = 0; i < a.length; i += 1) {
+                if (a[i] !== b[i]) {
+                    return false;
+                }
+            }
+            return true;
         }
 
-        function init() {
-            parseConfig();
-            applyTheme('dark');
+        function renderRecentTrack() {
+            if (!middleTrack) {
+                return;
+            }
+            middleTrack.innerHTML = '';
+            const firstSetLength = recentPhotos.length;
+            middleTrack.dataset.firstSetLength = firstSetLength;
 
-            if (!state.photoDetails.length) {
-                thumbnailStrip && (thumbnailStrip.innerHTML = '');
+            if (!firstSetLength) {
+                middleTrack.classList.remove('animate');
+                middleTrack.style.animation = 'none';
                 return;
             }
 
-            updateInfo(state.photoDetails[currentIndex]);
-            renderThumbnails();
-            showSlide(currentIndex, { immediate: true });
-            startSlideshow();
-            if (state.photoDetails.length <= 1) {
-                pauseSlideshow();
-            }
-            setupRealtimeListeners();
+            const fragment = document.createDocumentFragment();
+            const duplicateFragment = document.createDocumentFragment();
 
-            playToggle?.addEventListener('click', togglePlayState);
-            infoToggle?.addEventListener('click', toggleInfoPanel);
-            themeToggle?.addEventListener('click', toggleTheme);
-            fullscreenToggle?.addEventListener('click', toggleFullscreen);
-
-            document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
-                    pauseSlideshow();
-                } else if (!slideTimer && state.photoDetails.length > 1) {
-                    startSlideshow();
-                }
+            recentPhotos.forEach((photo, index) => {
+                const url = recentPhotoUrls[index] || buildPhotoUrl(photo);
+                fragment.appendChild(createImageElement(url, photo));
+                duplicateFragment.appendChild(createImageElement(url, photo));
             });
 
-            document.addEventListener('keydown', handleKeyboardShortcuts);
+            middleTrack.appendChild(fragment);
+            middleTrack.appendChild(duplicateFragment);
+            restartTrackAnimation(middleTrack);
         }
 
-        init();
+        function renderTopTrack() {
+            if (!topTrack) {
+                return;
+            }
+            topTrack.innerHTML = '';
+            const firstSetLength = topPhotos.length;
+            topTrack.dataset.firstSetLength = firstSetLength;
+
+            if (!firstSetLength) {
+                topTrack.classList.remove('animate');
+                topTrack.style.animation = 'none';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            const duplicateFragment = document.createDocumentFragment();
+
+            topPhotos.forEach((photo, index) => {
+                const url = topPhotoUrls[index] || buildPhotoUrl(photo);
+                fragment.appendChild(createImageElement(url, photo));
+                duplicateFragment.appendChild(createImageElement(url, photo));
+            });
+
+            topTrack.appendChild(fragment);
+            topTrack.appendChild(duplicateFragment);
+            restartTrackAnimation(topTrack);
+        }
+
+        function tryIncrementalShift(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
+            if (!track || !Array.isArray(prevPhotos) || !Array.isArray(nextPhotos)) {
+                return false;
+            }
+            if (prevPhotos.length === 0 || nextPhotos.length === 0) {
+                return false;
+            }
+            if (prevPhotos.length !== nextPhotos.length) {
+                return false;
+            }
+
+            const firstSetLength = Number(track.dataset.firstSetLength || 0);
+            if (firstSetLength !== prevPhotos.length) {
+                return false;
+            }
+
+            for (let i = 0; i < nextPhotos.length - 1; i += 1) {
+                if (nextPhotos[i] !== prevPhotos[i + 1]) {
+                    return false;
+                }
+            }
+
+            const newPhoto = nextPhotos[nextPhotos.length - 1];
+            const newUrl = nextPhotoUrls
+                ? nextPhotoUrls[nextPhotoUrls.length - 1]
+                : buildPhotoUrl(newPhoto);
+
+            const expectedChildCount = firstSetLength * 2;
+            if (track.children.length !== expectedChildCount) {
+                return false;
+            }
+
+            const primaryToRemove = track.children[0];
+            if (!primaryToRemove) {
+                return false;
+            }
+            track.removeChild(primaryToRemove);
+
+            const duplicateIndex = firstSetLength - 1;
+            const duplicateToRemove = track.children[duplicateIndex];
+            if (!duplicateToRemove) {
+                return false;
+            }
+            track.removeChild(duplicateToRemove);
+
+            const newPrimary = createImageElement(newUrl, newPhoto);
+            const insertBeforeNode = track.children[duplicateIndex] || null;
+            track.insertBefore(newPrimary, insertBeforeNode);
+
+            const newDuplicate = createImageElement(newUrl, newPhoto);
+            track.appendChild(newDuplicate);
+
+            track.dataset.firstSetLength = nextPhotos.length;
+            return true;
+        }
+
+        function handlePhotoListUpdate(payload) {
+            const newPhotos = Array.isArray(payload.photos) ? payload.photos : [];
+            const newPhotoUrls = Array.isArray(payload.photo_urls) ? payload.photo_urls : null;
+            if (!Array.isArray(newPhotos)) {
+                return false;
+            }
+            if (newPhotos.length < currentPhotos.length) {
+                return true;
+            }
+
+            const hadAddition = newPhotos.length > currentPhotos.length;
+
+            const prevRecentPhotos = recentPhotos.slice();
+            const prevRecentPhotoUrls = recentPhotoUrls.slice();
+            const prevTopPhotos = topPhotos.slice();
+            const prevTopPhotoUrls = topPhotoUrls.slice();
+
+            currentPhotos = newPhotos.slice();
+            if (Array.isArray(newPhotoUrls)) {
+                currentPhotoUrls = newPhotoUrls.slice();
+            } else if (hadAddition) {
+                currentPhotoUrls = currentPhotos.map(buildPhotoUrl);
+            }
+
+            const payloadRecentPhotos = Array.isArray(payload.recent_photos) ? payload.recent_photos : null;
+            const payloadRecentPhotoUrls = Array.isArray(payload.recent_photo_urls) ? payload.recent_photo_urls : null;
+            const newRecentPhotos = payloadRecentPhotos ? payloadRecentPhotos.slice() : currentPhotos.slice(-10);
+            const newRecentPhotoUrls = payloadRecentPhotoUrls
+                ? payloadRecentPhotoUrls.slice()
+                : (Array.isArray(newPhotoUrls)
+                    ? newPhotoUrls.slice(-10)
+                    : newRecentPhotos.map(buildPhotoUrl));
+
+            const recentChanged = !arraysEqual(newRecentPhotos, recentPhotos) || !arraysEqual(newRecentPhotoUrls, recentPhotoUrls);
+
+            if (recentChanged) {
+                const handled = tryIncrementalShift(
+                    middleTrack,
+                    prevRecentPhotos,
+                    prevRecentPhotoUrls,
+                    newRecentPhotos,
+                    newRecentPhotoUrls
+                );
+                recentPhotos = newRecentPhotos;
+                recentPhotoUrls = newRecentPhotoUrls;
+                if (!handled) {
+                    renderRecentTrack();
+                }
+            }
+
+            const payloadTopPhotos = Array.isArray(payload.top_photos) ? payload.top_photos : null;
+            const payloadTopPhotoUrls = Array.isArray(payload.top_photo_urls) ? payload.top_photo_urls : null;
+            const topStart = Math.max(0, currentPhotos.length - 30);
+            const topEnd = Math.max(0, currentPhotos.length - 10);
+            const newTopPhotos = payloadTopPhotos ? payloadTopPhotos.slice() : currentPhotos.slice(topStart, topEnd);
+            const newTopPhotoUrls = payloadTopPhotoUrls
+                ? payloadTopPhotoUrls.slice()
+                : (Array.isArray(newPhotoUrls)
+                    ? newPhotoUrls.slice(topStart, topEnd)
+                    : newTopPhotos.map(buildPhotoUrl));
+
+            const topChanged = !arraysEqual(newTopPhotos, topPhotos) || !arraysEqual(newTopPhotoUrls, topPhotoUrls);
+
+            if (topChanged) {
+                const handled = tryIncrementalShift(
+                    topTrack,
+                    prevTopPhotos,
+                    prevTopPhotoUrls,
+                    newTopPhotos,
+                    newTopPhotoUrls
+                );
+                topPhotos = newTopPhotos;
+                topPhotoUrls = newTopPhotoUrls;
+                if (!handled) {
+                    renderTopTrack();
+                }
+            }
+
+            lastPhotoCount = currentPhotos.length;
+            return hadAddition;
+        }
+
+        function createImageElement(url, filename) {
+            const img = document.createElement('img');
+            img.src = url || buildPhotoUrl(filename);
+            img.alt = 'Photo';
+            return img;
+        }
+
+        function initializeSlideshow() {
+            const tracks = document.querySelectorAll('.slide-track');
+            
+            tracks.forEach((track) => {
+                track.classList.add('init');
+                
+                const images = track.querySelectorAll('img');
+                
+                if (images.length === 0) {
+                    return;
+                }
+                
+                let loadedCount = 0;
+                const totalImages = images.length;
+                
+                function checkAllLoaded() {
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        startAnimation(track);
+                    }
+                }
+                
+                images.forEach(img => {
+                    if (img.complete) {
+                        checkAllLoaded();
+                    } else {
+                        img.addEventListener('load', checkAllLoaded);
+                        img.addEventListener('error', checkAllLoaded);
+                    }
+                });
+                
+                setTimeout(() => {
+                    if (track.classList.contains('init')) {
+                        startAnimation(track);
+                    }
+                }, 5000);
+            });
+        }
+        
+        function startAnimation(track) {
+            track.classList.remove('init');
+            track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+            track.classList.add('animate');
+        }
+
+        function restartTrackAnimation(track) {
+            if (!track) {
+                return;
+            }
+            track.classList.remove('animate');
+            track.classList.add('init');
+            track.style.animation = 'none';
+            void track.offsetWidth;
+            startAnimation(track);
+        }
+        
+        window.addEventListener('load', function() {
+            renderTopTrack();
+            renderRecentTrack();
+            setTimeout(initializeSlideshow, 100);
+            scheduleNextPoll();
+        });
+        
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                const tracks = document.querySelectorAll('.slide-track');
+                tracks.forEach(track => {
+                    if (!track.classList.contains('animate') && track.querySelectorAll('img').length > 0) {
+                        startAnimation(track);
+                    }
+                });
+                requestImmediateRefresh();
+            } else {
+                if (pollTimer) {
+                    clearTimeout(pollTimer);
+                    pollTimer = null;
+                }
+            }
+        });
     </script>
 </body>
 </html>

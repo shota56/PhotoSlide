@@ -59,7 +59,7 @@ def get_photo_details(sort_by: str = 'name'):
 
 @app.route('/')
 def index():
-    photos = get_photos()
+    photos = get_photos(sort_by='upload')
     return render_template('upload.html', photos=photos)
 
 @app.route('/upload', methods=['POST'])
@@ -93,10 +93,20 @@ def slideshow():
 @app.route('/api/photos')
 def api_photos():
     """写真のリストをJSONで返すAPI"""
-    photos = get_photos()
+    photos = get_photos(sort_by='upload')
     photo_urls = [url_for('serve_upload', filename=photo) for photo in photos]
-    photo_details = get_photo_details()
-    return jsonify({'photos': photos, 'photo_urls': photo_urls, 'photo_details': photo_details})
+    recent_photos = photos[-10:]
+    top_photos = photos[-30:-10] if len(photos) > 10 else photos[:-10]
+    recent_photo_urls = [url_for('serve_upload', filename=photo) for photo in recent_photos]
+    top_photo_urls = [url_for('serve_upload', filename=photo) for photo in top_photos]
+    return jsonify({
+        'photos': photos,
+        'photo_urls': photo_urls,
+        'recent_photos': recent_photos,
+        'recent_photo_urls': recent_photo_urls,
+        'top_photos': top_photos,
+        'top_photo_urls': top_photo_urls
+    })
 
 # 管理者ログインページ
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -134,10 +144,20 @@ def admin_dashboard():
 @app.route('/admin/slideshow')
 @admin_required
 def admin_slideshow():
-    photo_details = get_photo_details(sort_by='upload')
+    photos = get_photos(sort_by='upload')
+    recent_photos = photos[-10:]
+    top_photos = photos[-30:-10] if len(photos) > 10 else photos[:-10]
+    photo_urls = [url_for('serve_upload', filename=photo) for photo in photos]
+    recent_photo_urls = [url_for('serve_upload', filename=photo) for photo in recent_photos]
+    top_photo_urls = [url_for('serve_upload', filename=photo) for photo in top_photos]
     return render_template(
         'admin_slideshow.html',
-        photo_details=photo_details
+        photos=photos,
+        photos_top=top_photos,
+        photos_recent=recent_photos,
+        photo_urls=photo_urls,
+        recent_photo_urls=recent_photo_urls,
+        top_photo_urls=top_photo_urls
     )
 
 
