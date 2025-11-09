@@ -223,7 +223,7 @@
                         {% for position, filename in ranking.photos %}
                             {% if position == 2 %}
                                 <div class="rank-number">2</div>
-                                <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="2位">
+                                <img src="{{ url_for('serve_upload', filename=filename) }}" alt="2位">
                             {% endif %}
                         {% endfor %}
                     </div>
@@ -235,7 +235,7 @@
                         {% for position, filename in ranking.photos %}
                             {% if position == 1 %}
                                 <div class="rank-number">1</div>
-                                <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="1位">
+                                <img src="{{ url_for('serve_upload', filename=filename) }}" alt="1位">
                             {% endif %}
                         {% endfor %}
                     </div>
@@ -247,7 +247,7 @@
                         {% for position, filename in ranking.photos %}
                             {% if position == 3 %}
                                 <div class="rank-number">3</div>
-                                <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="3位">
+                                <img src="{{ url_for('serve_upload', filename=filename) }}" alt="3位">
                             {% endif %}
                         {% endfor %}
                     </div>

@@ -71,68 +71,87 @@
 <body>
     <!-- 上段のスライダー -->
     <div class="slider-row top-row">
-        <div class="slide-track" id="topTrack">
+        <div class="slide-track" id="topTrack" data-first-set-length="{{ photos_top|length }}">
             {% for photo in photos_top %}
-                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
             {% endfor %}
             {% for photo in photos_top %}
-                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
             {% endfor %}
         </div>
     </div>
 
     <!-- 中段のスライダー -->
     <div class="slider-row middle-row">
-        <div class="slide-track" id="middleTrack">
+        <div class="slide-track" id="middleTrack" data-first-set-length="{{ photos_middle|length }}">
             {% for photo in photos_middle %}
-                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
             {% endfor %}
             {% for photo in photos_middle %}
-                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
             {% endfor %}
         </div>
     </div>
 
     <!-- 下段のスライダー -->
     <div class="slider-row bottom-row">
-        <div class="slide-track" id="bottomTrack">
+        <div class="slide-track" id="bottomTrack" data-first-set-length="{{ photos_bottom|length }}" data-offset="{{ bottom_offset }}">
             {% for photo in photos_bottom %}
-                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
             {% endfor %}
             {% for photo in photos_bottom %}
-                <img src="{{ url_for('static', filename='uploads/' + photo) }}" alt="Photo">
+                <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Photo">
             {% endfor %}
         </div>
     </div>
 
     <!-- 現在の写真リストをJSON形式で埋め込み（リアルタイム更新用） -->
-    <script type="application/json" id="photos-data">{% if photos %}{{ photos | tojson }}{% else %}[]{% endif %}</script>
+    <script type="application/json" id="slideshow-data">
+        {{ {
+            'photos': photos,
+            'photoUrls': photo_urls,
+            'bottomOffset': bottom_offset
+        } | tojson }}
+    </script>
 
     <script>
         // 固定のアニメーション速度（秒/ループ）- この値を変えることで速度を調整可能
         const FIXED_ANIMATION_DURATION = 60; // 60秒で1ループ（1セット分を移動）
 
         // 埋め込んだ写真リストを取得して現在の状態を保持
-        const photosDataElement = document.getElementById('photos-data');
+        const configElement = document.getElementById('slideshow-data');
+        const uploadsBaseUrl = "{{ url_for('serve_upload', filename='__PLACEHOLDER__') }}".replace('__PLACEHOLDER__', '');
         let currentPhotos = [];
+        let currentPhotoUrls = [];
+        let bottomOffset = 1;
         try {
-            currentPhotos = JSON.parse(photosDataElement.textContent);
+            const parsed = JSON.parse(configElement.textContent);
+            currentPhotos = Array.isArray(parsed.photos) ? parsed.photos.slice() : [];
+            currentPhotoUrls = Array.isArray(parsed.photoUrls) ? parsed.photoUrls.slice() : [];
+            bottomOffset = Number(parsed.bottomOffset) || 1;
         } catch (e) {
-            console.warn('Failed to parse embedded photo data:', e);
+            console.warn('Failed to parse slideshow config:', e);
             currentPhotos = [];
+            currentPhotoUrls = [];
+            bottomOffset = 1;
         }
 
         let lastPhotoCount = currentPhotos.length;
         let refreshTimer = null;
+        let fetchInProgress = false;
         let lastStorageTimestamp = Date.now();
+        const topTrack = document.getElementById('topTrack');
+        const middleTrack = document.getElementById('middleTrack');
+        const bottomTrack = document.getElementById('bottomTrack');
 
         function scheduleRefresh() {
             if (refreshTimer) {
                 return;
             }
             refreshTimer = setTimeout(() => {
-                window.location.reload();
-            }, 1200);
+                refreshTimer = null;
+                fetchLatestPhotos();
+            }, 600);
         }
 
         // BroadcastChannelで他タブからの通知を受け取る
@@ -169,6 +188,14 @@
 
         // サーバーに問い合わせて新しい写真がないか確認（フォールバック）
         setInterval(() => {
+            fetchLatestPhotos();
+        }, 4000);
+
+        function fetchLatestPhotos() {
+            if (fetchInProgress) {
+                return;
+            }
+            fetchInProgress = true;
             fetch('/api/photos')
                 .then((response) => {
                     if (!response.ok) {
@@ -180,15 +207,96 @@
                     if (!data || !Array.isArray(data.photos)) {
                         return;
                     }
-                    if (data.photos.length > lastPhotoCount) {
-                        scheduleRefresh();
-                    }
-                    lastPhotoCount = data.photos.length;
+                    handlePhotoListUpdate(data.photos, data.photo_urls);
                 })
                 .catch(() => {
                     // ネットワークエラー時は何もしない（次回に再試行）
+                })
+                .finally(() => {
+                    fetchInProgress = false;
                 });
-        }, 4000);
+        }
+
+        function buildPhotoUrl(filename) {
+            if (!filename) {
+                return '';
+            }
+            return `${uploadsBaseUrl}${encodeURIComponent(filename)}`;
+        }
+
+        function handlePhotoListUpdate(newPhotos, newPhotoUrls) {
+            if (!Array.isArray(newPhotos)) {
+                return;
+            }
+            if (newPhotos.length < currentPhotos.length) {
+                window.location.reload();
+                return;
+            }
+            if (newPhotos.length === currentPhotos.length) {
+                return;
+            }
+
+            const startIndex = currentPhotos.length;
+            const additions = newPhotos.slice(startIndex);
+            const additionUrls = Array.isArray(newPhotoUrls)
+                ? newPhotoUrls.slice(startIndex)
+                : additions.map(buildPhotoUrl);
+
+            additions.forEach((photo, index) => {
+                const url = additionUrls[index] || buildPhotoUrl(photo);
+                appendNewPhoto(photo, url);
+            });
+
+            currentPhotos = newPhotos.slice();
+            if (Array.isArray(newPhotoUrls)) {
+                currentPhotoUrls = newPhotoUrls.slice();
+            } else {
+                additionUrls.forEach((url) => currentPhotoUrls.push(url));
+            }
+            lastPhotoCount = currentPhotos.length;
+        }
+
+        function createImageElement(url, filename) {
+            const img = document.createElement('img');
+            img.src = url || buildPhotoUrl(filename);
+            img.alt = 'Photo';
+            return img;
+        }
+
+        function insertPhotoIntoTrack(track, url, insertIndex) {
+            const firstSetLength = Number(track.dataset.firstSetLength || 0);
+            const index = insertIndex === undefined
+                ? firstSetLength
+                : Math.max(0, Math.min(insertIndex, firstSetLength));
+            const childrenSnapshot = Array.from(track.children);
+            const primaryRef = childrenSnapshot[index] || null;
+            const duplicateRef = childrenSnapshot[firstSetLength + index] || null;
+
+            const img = createImageElement(url);
+            const duplicate = createImageElement(url);
+
+            track.insertBefore(img, primaryRef);
+            if (duplicateRef) {
+                track.insertBefore(duplicate, duplicateRef);
+            } else {
+                track.appendChild(duplicate);
+            }
+
+            track.dataset.firstSetLength = firstSetLength + 1;
+        }
+
+        function appendNewPhoto(photo, url) {
+            const topInsertIndex = Number(topTrack.dataset.firstSetLength || 0);
+            insertPhotoIntoTrack(topTrack, url, topInsertIndex);
+
+            const middleInsertIndex = Number(middleTrack.dataset.firstSetLength || 0);
+            insertPhotoIntoTrack(middleTrack, url, middleInsertIndex);
+
+            const bottomFirstLength = Number(bottomTrack.dataset.firstSetLength || 0);
+            const offset = Number(bottomTrack.dataset.offset || bottomOffset || 1);
+            const bottomInsertIndex = Math.max(0, bottomFirstLength - offset);
+            insertPhotoIntoTrack(bottomTrack, url, bottomInsertIndex);
+        }
  
         // 各トラックの画像を適切に複製し、アニメーションを設定
         function initializeSlideshow() {

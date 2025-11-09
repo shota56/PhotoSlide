@@ -1,11 +1,17 @@
-from flask import Flask, request, render_template, redirect, url_for, jsonify, session, flash
+from flask import Flask, request, render_template, redirect, url_for, jsonify, session, flash, send_from_directory
 from werkzeug.utils import secure_filename
 from functools import wraps
 import os
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'  # セッション用の秘密鍵
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+upload_folder_env = os.environ.get('UPLOAD_FOLDER')
+if upload_folder_env:
+    upload_folder = os.path.abspath(upload_folder_env)
+else:
+    upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+
+app.config['UPLOAD_FOLDER'] = upload_folder
 
 # アップロードフォルダが存在しない場合は作成
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -23,7 +29,8 @@ def get_photos(sort_by: str = 'name'):
     """写真のリストを取得"""
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         return []
-    photos = [f for f in os.listdir(app.config['UPLOAD_FOLDER'])
+    upload_dir = app.config['UPLOAD_FOLDER']
+    photos = [f for f in os.listdir(upload_dir)
               if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
     if sort_by == 'upload':
         upload_folder = app.config['UPLOAD_FOLDER']
@@ -52,7 +59,7 @@ def upload_photo():
     photo.save(filepath)
     
     # 写真のURLを生成
-    photo_url = url_for('static', filename=f'uploads/{filename}')
+    photo_url = url_for('serve_upload', filename=filename)
     
     return jsonify({
         'success': True,
@@ -69,7 +76,7 @@ def slideshow():
 def api_photos():
     """写真のリストをJSONで返すAPI"""
     photos = get_photos()
-    photo_urls = [url_for('static', filename=f'uploads/{photo}') for photo in photos]
+    photo_urls = [url_for('serve_upload', filename=photo) for photo in photos]
     return jsonify({'photos': photos, 'photo_urls': photo_urls})
 
 # 管理者ログインページ
@@ -114,13 +121,23 @@ def admin_slideshow():
         bottom_photos = photos[offset:] + photos[:offset]
     else:
         bottom_photos = []
+        offset = 1
+    photo_urls = [url_for('static', filename=f'uploads/{photo}') for photo in photos]
     return render_template(
         'admin_slideshow.html',
         photos=photos,
         photos_top=photos,
         photos_middle=photos,
-        photos_bottom=bottom_photos
+        photos_bottom=bottom_photos,
+        photo_urls=photo_urls,
+        bottom_offset=offset
     )
+
+
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    """アップロードされた写真を配信する"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # ランキング作成（現時点ではデータベースがないため、実装は簡易版）
 @app.route('/admin/ranking/create', methods=['POST'])

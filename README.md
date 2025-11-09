@@ -47,3 +47,4 @@ http://localhost:5000 にアクセスしてください。
 
 - 仮想環境をアクティベートしてからアプリケーションを起動してください
 - 写真は `static/uploads/` フォルダに保存されます
+- Render の Persistent Disk を利用する場合は、ディスクのマウント先を環境変数 `UPLOAD_FOLDER` として指定してください（例: `/var/uploads`）。アプリはそのパスを自動的に作成し、`/uploads/<ファイル名>` で配信します。

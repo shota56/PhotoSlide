@@ -201,7 +201,7 @@
         <div class="photo-grid">
             {% for photo in photos %}
             <div class="photo-item" onclick="selectForRanking('{{ photo[0] }}', '{{ photo[1] }}')">
-                <img src="{{ url_for('static', filename='uploads/' + photo[1]) }}" alt="{{ photo[1] }}">
+                <img src="{{ url_for('serve_upload', filename=photo[1]) }}" alt="{{ photo[1] }}">
                 <div class="photo-controls">
                     <form method="post" action="{{ url_for('delete_photo', photo_id=photo[0]) }}" 
                           style="display: inline;"
@@ -234,6 +234,7 @@
     </div>
 
     <script>
+        const uploadsBaseUrl = "{{ url_for('serve_upload', filename='__PLACEHOLDER__') }}".replace('__PLACEHOLDER__', '');
         let currentRankingMode = null;
         const rankings = {
             1: null,
@@ -266,8 +267,9 @@
 
             // ランキング情報を更新
             rankings[currentRankingMode] = photoId;
+            const photoUrl = `${uploadsBaseUrl}${encodeURIComponent(filename)}`;
             document.getElementById(`rank${currentRankingMode}`).innerHTML = 
-                `${currentRankingMode}位: <img src="/static/uploads/${filename}" alt="${filename}"> ${filename}`;
+                `${currentRankingMode}位: <img src="${photoUrl}" alt="${filename}"> ${filename}`;
             document.getElementById(`rank_${currentRankingMode}`).value = photoId;
         }
     </script>

@@ -182,7 +182,7 @@
                             <div class="spotlight"></div>
                             <div class="photo-container">
                                 <div class="rank-number">{{ position }}位</div>
-                                <img src="{{ url_for('static', filename='uploads/' + filename) }}" alt="{{ position }}位">
+                                <img src="{{ url_for('serve_upload', filename=filename) }}" alt="{{ position }}位">
                             </div>
                         </div>
                     </div>
