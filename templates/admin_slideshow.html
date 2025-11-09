@@ -127,30 +127,30 @@
         let topPhotoUrls = [];
         let recentPhotos = [];
         let recentPhotoUrls = [];
-        try {
-            const parsed = JSON.parse(configElement.textContent);
-            currentPhotos = Array.isArray(parsed.photos) ? parsed.photos.slice() : [];
-            currentPhotoUrls = Array.isArray(parsed.photoUrls) ? parsed.photoUrls.slice() : [];
-            topPhotos = Array.isArray(parsed.topPhotos) ? parsed.topPhotos.slice() : [];
-            topPhotoUrls = Array.isArray(parsed.topPhotoUrls) ? parsed.topPhotoUrls.slice() : [];
-            recentPhotos = Array.isArray(parsed.recentPhotos) ? parsed.recentPhotos.slice() : [];
-            recentPhotoUrls = Array.isArray(parsed.recentPhotoUrls) ? parsed.recentPhotoUrls.slice() : [];
-        } catch (e) {
-            console.warn('Failed to parse slideshow config:', e);
-            currentPhotos = [];
-            currentPhotoUrls = [];
-            topPhotos = [];
-            topPhotoUrls = [];
-            recentPhotos = [];
-            recentPhotoUrls = [];
-        }
+         try {
+             const parsed = JSON.parse(configElement.textContent);
+             currentPhotos = Array.isArray(parsed.photos) ? parsed.photos.slice() : [];
+             currentPhotoUrls = Array.isArray(parsed.photoUrls) ? parsed.photoUrls.slice() : [];
+             topPhotos = Array.isArray(parsed.topPhotos) ? parsed.topPhotos.slice() : [];
+             topPhotoUrls = Array.isArray(parsed.topPhotoUrls) ? parsed.topPhotoUrls.slice() : [];
+             recentPhotos = Array.isArray(parsed.recentPhotos) ? parsed.recentPhotos.slice() : [];
+             recentPhotoUrls = Array.isArray(parsed.recentPhotoUrls) ? parsed.recentPhotoUrls.slice() : [];
+         } catch (e) {
+             console.warn('Failed to parse slideshow config:', e);
+             currentPhotos = [];
+             currentPhotoUrls = [];
+             topPhotos = [];
+             topPhotoUrls = [];
+             recentPhotos = [];
+             recentPhotoUrls = [];
+         }
 
-        let lastPhotoCount = currentPhotos.length;
-        let refreshTimer = null;
-        let fetchInProgress = false;
-        let lastStorageTimestamp = Date.now();
-        const topTrack = document.getElementById('topTrack');
-        const middleTrack = document.getElementById('middleTrack');
+         let lastPhotoCount = currentPhotos.length;
+         let refreshTimer = null;
+         let fetchInProgress = false;
+         let lastStorageTimestamp = Date.now();
+         let topTrack = document.getElementById('topTrack');
+         const middleTrack = document.getElementById('middleTrack');
         let pollTimer = null;
         let currentPollInterval = MIN_POLL_INTERVAL;
 
@@ -474,6 +474,9 @@
                 topPhotos = newTopPhotos;
                 topPhotoUrls = newTopPhotoUrls;
                 if (!handled) {
+                    if (!topTrack && newTopPhotos.length) {
+                        insertTopLaneSkeleton();
+                    }
                     renderTopTrack();
                 }
             }
@@ -556,6 +559,9 @@
         }
         
         window.addEventListener('load', function() {
+            if (!topTrack && topPhotos.length) {
+                insertTopLaneSkeleton();
+            }
             renderTopTrack();
             renderRecentTrack();
             setTimeout(initializeSlideshow, 100);
@@ -578,6 +584,26 @@
                 }
             }
         });
+
+        function insertTopLaneSkeleton() {
+            const container = document.querySelector('.slideshow-app');
+            const mainSection = document.querySelector('.slideshow-main');
+            const topRowFragment = document.createElement('div');
+            topRowFragment.className = 'slider-row top-row';
+
+            const trackDiv = document.createElement('div');
+            trackDiv.className = 'slide-track';
+            trackDiv.id = 'topTrack';
+            trackDiv.dataset.firstSetLength = '0';
+            trackDiv.dataset.loopEnabled = '0';
+            topRowFragment.appendChild(trackDiv);
+
+            container.insertBefore(topRowFragment, mainSection);
+
+            document.body.classList.remove('single-lane');
+
+            topTrack = trackDiv;
+        }
     </script>
 </body>
 </html>

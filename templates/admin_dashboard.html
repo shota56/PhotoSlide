@@ -19,28 +19,89 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        h1, h2 {
+        h1, h2, h3 {
             color: #2c3e50;
             margin-bottom: 20px;
         }
-        .ranking-form {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 5px;
+        .nav-links {
+            margin-bottom: 20px;
         }
-        .ranking-name-input {
+        .nav-links a {
+            color: #3498db;
+            text-decoration: none;
+            margin-right: 20px;
+        }
+        .categories-wrapper {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .category-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .category-card.active {
+            border: 2px solid #3498db;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2);
+        }
+        .category-name-input {
             width: 100%;
             padding: 10px;
-            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        .selected-photo-preview {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background: #fff;
+            border: 1px dashed #ccc;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .selected-photo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .placeholder-text {
+            color: #888;
+            font-size: 14px;
+        }
+        .select-photo-btn {
+            background: #3498db;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            align-self: flex-start;
+        }
+        .select-photo-btn:hover {
+            background: #2980b9;
+        }
+        .order-select {
+            width: 100%;
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 15px;
         }
         .photo-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 18px;
             margin-bottom: 40px;
         }
         .photo-item {
@@ -50,9 +111,10 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             overflow: hidden;
             cursor: pointer;
+            transition: transform 0.2s ease;
         }
-        .photo-item.selected {
-            border: 3px solid #3498db;
+        .photo-item:hover {
+            transform: translateY(-3px);
         }
         .photo-item img {
             width: 100%;
@@ -62,7 +124,7 @@
         .photo-controls {
             padding: 10px;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
             background: #f8f9fa;
         }
@@ -74,93 +136,29 @@
             border-radius: 3px;
             cursor: pointer;
         }
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
         .submit-btn {
             background-color: #3498db;
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
         }
-        .ranking-selection {
-            margin-bottom: 20px;
-        }
-        .rank-btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            margin-right: 10px;
-            cursor: pointer;
-        }
-        .rank-btn.active {
-            background: #e67e22;
-        }
-        .selected-photos {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 5px;
-        }
-        .selected-photo {
-            margin: 5px 0;
-            padding: 10px;
-            background: white;
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .selected-photo img {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 3px;
-        }
-        .nav-links {
-            margin-bottom: 20px;
-        }
-        .nav-links a {
-            color: #3498db;
-            text-decoration: none;
-            margin-right: 20px;
-        }
-        .rankings-list {
-            margin-top: 40px;
-            padding: 20px;
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .rankings-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .ranking-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .ranking-controls {
-            margin-top: 10px;
-            display: flex;
-            justify-content: flex-end;
-        }
-        .view-btn {
-            background: #3498db;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 5px;
-            text-decoration: none;
+        .status-message {
             font-size: 14px;
         }
-        .view-btn:hover {
-            background: #2980b9;
+        .status-success {
+            color: #2ecc71;
+        }
+        .status-error {
+            color: #e74c3c;
         }
     </style>
 </head>
@@ -168,42 +166,60 @@
     <div class="container">
         <div class="nav-links">
             <a href="/">メインページ</a>
-            <a href="/rankings">ランキング一覧</a>
+            <a href="/admin/slideshow">スライドショー</a>
+            <a href="/result" target="_blank">結果発表ページを開く</a>
         </div>
         
         <h1>管理者ダッシュボード</h1>
 
-        <h2>新規ランキング作成</h2>
-        <form class="ranking-form" method="post" action="{{ url_for('create_ranking') }}">
-            <input type="text" name="ranking_name" class="ranking-name-input" 
-                   placeholder="ランキング名を入力してください" required>
-            
-            <div class="ranking-selection">
-                <button type="button" class="rank-btn" onclick="setRankingMode(1)">1位を選択</button>
-                <button type="button" class="rank-btn" onclick="setRankingMode(2)">2位を選択</button>
-                <button type="button" class="rank-btn" onclick="setRankingMode(3)">3位を選択</button>
-            </div>
+        <h2>表彰カテゴリ設定</h2>
+        <p>各カテゴリの名称・受賞写真・発表順を設定してください。写真を選ぶには「選出モード」に切り替えてから下のギャラリーをクリックします。</p>
 
-            <div class="selected-photos">
-                <div class="selected-photo" id="rank1">1位: 未選択</div>
-                <div class="selected-photo" id="rank2">2位: 未選択</div>
-                <div class="selected-photo" id="rank3">3位: 未選択</div>
+        <div class="categories-wrapper">
+            {% for category in result_config.categories %}
+            <div class="category-card" data-category-id="{{ category.id }}">
+                <div>
+                    <label>カテゴリ名</label>
+                    <input type="text" class="category-name-input" value="{{ category.name }}" data-role="category-name">
+                </div>
+                <div>
+                    <div class="selected-photo-preview" data-role="selected-photo">
+                        {% if category.photo %}
+                        <img src="{{ url_for('serve_upload', filename=category.photo) }}" alt="{{ category.photo }}">
+                        {% else %}
+                        <span class="placeholder-text">写真が選出されていません</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <button type="button" class="select-photo-btn" data-role="activate-category">このカテゴリに写真を選出</button>
+                </div>
+                <div>
+                    <label>発表順</label>
+                    <select class="order-select" data-role="order-select">
+                        <option value="" {% if not result_order_map.get(category.id) %}selected{% endif %}>未設定</option>
+                        <option value="1" {% if result_order_map.get(category.id) == 1 %}selected{% endif %}>1番目</option>
+                        <option value="2" {% if result_order_map.get(category.id) == 2 %}selected{% endif %}>2番目</option>
+                        <option value="3" {% if result_order_map.get(category.id) == 3 %}selected{% endif %}>3番目</option>
+                    </select>
+                </div>
             </div>
+            {% endfor %}
+        </div>
 
-            <input type="hidden" name="rank_1" id="rank_1">
-            <input type="hidden" name="rank_2" id="rank_2">
-            <input type="hidden" name="rank_3" id="rank_3">
-            
-            <button type="submit" class="submit-btn">ランキングを作成</button>
-        </form>
+        <div class="actions">
+            <button type="button" class="submit-btn" id="saveResultConfig">設定を保存</button>
+            <span class="status-message" id="saveStatus"></span>
+        </div>
 
         <h2>アップロード写真一覧</h2>
+        <p>「選出モード」で選んだカテゴリに対して写真を割り当てます。写真を削除すると結果設定からも自動的に除外されます。</p>
         <div class="photo-grid">
             {% for photo in photos %}
-            <div class="photo-item" onclick="selectForRanking('{{ photo[0] }}', '{{ photo[1] }}')">
-                <img src="{{ url_for('serve_upload', filename=photo[1]) }}" alt="{{ photo[1] }}">
+            <div class="photo-item" data-filename="{{ photo.filename }}">
+                <img src="{{ photo.url }}" alt="{{ photo.filename }}">
                 <div class="photo-controls">
-                    <form method="post" action="{{ url_for('delete_photo', photo_id=photo[0]) }}" 
+                    <form method="post" action="{{ url_for('delete_photo', photo_id=photo.id) }}" 
                           style="display: inline;"
                           onsubmit="return confirm('本当に削除しますか？');">
                         <button type="submit" class="delete-btn">削除</button>
@@ -212,66 +228,198 @@
             </div>
             {% endfor %}
         </div>
-
-        <div class="rankings-list">
-            <h2>作成済みランキング一覧</h2>
-            {% if rankings %}
-                <div class="rankings-grid">
-                    {% for ranking in rankings %}
-                    <div class="ranking-item">
-                        <h3>{{ ranking['name'] }}</h3>
-                        <div class="ranking-controls">
-                            <a href="{{ url_for('show_ranking', group_id=ranking['id']) }}" 
-                               class="view-btn">表示</a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p>作成済みのランキングはありません</p>
-            {% endif %}
-        </div>
     </div>
 
     <script>
         const uploadsBaseUrl = "{{ url_for('serve_upload', filename='__PLACEHOLDER__') }}".replace('__PLACEHOLDER__', '');
-        let currentRankingMode = null;
-        const rankings = {
-            1: null,
-            2: null,
-            3: null
-        };
+        const initialConfig = {{ result_config_json|safe }};
 
-        function setRankingMode(rank) {
-            currentRankingMode = rank;
-            document.querySelectorAll('.rank-btn').forEach(btn => {
-                btn.classList.remove('active');
+        const categoriesState = new Map();
+        const orderUsage = new Map();
+        let activeCategoryId = null;
+
+        initialConfig.categories.forEach((cat) => {
+            categoriesState.set(cat.id, {
+                id: cat.id,
+                name: cat.name || '',
+                photo: cat.photo || null,
+                order: (initialConfig.order.indexOf(cat.id) + 1) || null
             });
-            document.querySelector(`.rank-btn:nth-child(${rank})`).classList.add('active');
+        });
+
+        const categoryCards = document.querySelectorAll('.category-card');
+
+        function updateActiveCardVisuals() {
+            categoryCards.forEach((card) => {
+                if (card.dataset.categoryId === activeCategoryId) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
         }
 
-        function selectForRanking(photoId, filename) {
-            if (currentRankingMode === null) {
-                alert('先にランキングの順位を選択してください');
-                return;
+        function updateOrderUsage() {
+            orderUsage.clear();
+            categoriesState.forEach((catState) => {
+                if (catState.order) {
+                    orderUsage.set(catState.order, catState.id);
+                }
+            });
+        }
+
+        function refreshCategoryPreview(categoryId) {
+            const card = document.querySelector(`.category-card[data-category-id="${categoryId}"]`);
+            if (!card) return;
+            const preview = card.querySelector('[data-role="selected-photo"]');
+            const catState = categoriesState.get(categoryId);
+            if (!preview || !catState) return;
+            preview.innerHTML = '';
+            if (catState.photo) {
+                const img = document.createElement('img');
+                img.src = `${uploadsBaseUrl}${encodeURIComponent(catState.photo)}`;
+                img.alt = catState.photo;
+                preview.appendChild(img);
+            } else {
+                const span = document.createElement('span');
+                span.className = 'placeholder-text';
+                span.textContent = '写真が選出されていません';
+                preview.appendChild(span);
+            }
+        }
+
+        function setOrderValue(categoryId, newOrder) {
+            const catState = categoriesState.get(categoryId);
+            if (!catState) return;
+            const previousOrder = catState.order;
+            if (previousOrder === newOrder) return;
+
+            if (newOrder !== null) {
+                const occupiedBy = Array.from(categoriesState.values()).find((state) => state.order === newOrder && state.id !== categoryId);
+                if (occupiedBy) {
+                    occupiedBy.order = previousOrder || null;
+                    const otherSelect = document.querySelector(`.category-card[data-category-id="${occupiedBy.id}"] [data-role="order-select"]`);
+                    if (otherSelect) {
+                        otherSelect.value = occupiedBy.order || '';
+                    }
+                }
             }
 
-            // 既に選択されている写真の選択を解除
-            document.querySelectorAll('.photo-item').forEach(item => {
-                item.classList.remove('selected');
+            catState.order = newOrder;
+            updateOrderUsage();
+        }
+
+        categoryCards.forEach((card) => {
+            const categoryId = card.dataset.categoryId;
+            const nameInput = card.querySelector('[data-role="category-name"]');
+            const orderSelect = card.querySelector('[data-role="order-select"]');
+            const selectButton = card.querySelector('[data-role="activate-category"]');
+
+            const catState = categoriesState.get(categoryId);
+            if (catState) {
+                nameInput.value = catState.name;
+                orderSelect.value = catState.order || orderSelect.value;
+            }
+
+            selectButton.addEventListener('click', () => {
+                activeCategoryId = categoryId;
+                updateActiveCardVisuals();
             });
 
-            // 新しい写真を選択
-            const selectedItem = document.querySelector(`.photo-item img[alt="${filename}"]`).parentElement;
-            selectedItem.classList.add('selected');
+            nameInput.addEventListener('input', (event) => {
+                const state = categoriesState.get(categoryId);
+                if (state) {
+                    state.name = event.target.value;
+                }
+            });
 
-            // ランキング情報を更新
-            rankings[currentRankingMode] = photoId;
-            const photoUrl = `${uploadsBaseUrl}${encodeURIComponent(filename)}`;
-            document.getElementById(`rank${currentRankingMode}`).innerHTML = 
-                `${currentRankingMode}位: <img src="${photoUrl}" alt="${filename}"> ${filename}`;
-            document.getElementById(`rank_${currentRankingMode}`).value = photoId;
+            orderSelect.addEventListener('change', (event) => {
+                const raw = event.target.value;
+                if (raw === '') {
+                    setOrderValue(categoryId, null);
+                } else {
+                    const value = parseInt(raw, 10);
+                    if (!Number.isNaN(value)) {
+                        setOrderValue(categoryId, value);
+                    }
+                }
+            });
+
+            refreshCategoryPreview(categoryId);
+        });
+
+        updateOrderUsage();
+
+        document.querySelectorAll('.photo-item').forEach((item) => {
+            item.addEventListener('click', () => {
+                if (!activeCategoryId) {
+                    alert('写真を割り当てるカテゴリを選んでください。');
+                    return;
+                }
+                const filename = item.dataset.filename;
+                const catState = categoriesState.get(activeCategoryId);
+                if (!catState) return;
+                catState.photo = filename;
+                refreshCategoryPreview(activeCategoryId);
+            });
+        });
+
+        const saveButton = document.getElementById('saveResultConfig');
+        const statusEl = document.getElementById('saveStatus');
+
+        function showStatus(message, isSuccess = true) {
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${isSuccess ? 'status-success' : 'status-error'}`;
+            if (message) {
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                    statusEl.className = 'status-message';
+                }, 4000);
+            }
         }
+
+        saveButton.addEventListener('click', () => {
+            const payload = { categories: [], order: [] };
+
+            const orderedCategories = Array.from(categoriesState.values())
+                .sort((a, b) => (a.order || 999) - (b.order || 999));
+
+            orderedCategories.forEach((catState) => {
+                payload.categories.push({
+                    id: catState.id,
+                    name: catState.name,
+                    photo: catState.photo
+                });
+                if (catState.order) {
+                    payload.order.push(catState.id);
+                }
+            });
+
+            fetch('{{ url_for("update_result_config") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('保存に失敗しました');
+                }
+                return response.json();
+            })
+            .then((data) => {
+                if (data.success) {
+                    showStatus('設定を保存しました', true);
+                } else {
+                    showStatus(data.error || '保存に失敗しました', false);
+                }
+            })
+            .catch((error) => {
+                console.error(error);
+                showStatus('保存に失敗しました', false);
+            });
+        });
     </script>
 </body>
 </html> 

@@ -3,6 +3,8 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 from datetime import datetime
 import os
+import json
+
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'  # セッション用の秘密鍵
@@ -16,6 +18,63 @@ app.config['UPLOAD_FOLDER'] = upload_folder
 
 # アップロードフォルダが存在しない場合は作成
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+DATA_DIR = os.path.join(app.root_path, 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
+
+RESULT_CONFIG_FILE = os.path.join(DATA_DIR, 'result_config.json')
+
+DEFAULT_CATEGORIES = [
+    {"id": "category_1", "name": "新郎賞"},
+    {"id": "category_2", "name": "新婦賞"},
+    {"id": "category_3", "name": "総合賞"},
+]
+
+
+def load_result_config():
+    if os.path.exists(RESULT_CONFIG_FILE):
+        try:
+            with open(RESULT_CONFIG_FILE, 'r', encoding='utf-8') as fp:
+                data = json.load(fp)
+        except (json.JSONDecodeError, OSError):
+            data = {}
+    else:
+        data = {}
+
+    categories_by_id = {
+        cat['id']: cat for cat in data.get('categories', [])
+        if isinstance(cat, dict) and 'id' in cat
+    }
+
+    normalized_categories = []
+    for default in DEFAULT_CATEGORIES:
+        existing = categories_by_id.get(default['id'], {})
+        name = existing.get('name') or default['name']
+        photo = existing.get('photo') or None
+        normalized_categories.append({
+            'id': default['id'],
+            'name': name,
+            'photo': photo
+        })
+
+    order = data.get('order') or [cat['id'] for cat in DEFAULT_CATEGORIES]
+    valid_ids = {cat['id'] for cat in normalized_categories}
+    order = [cat_id for cat_id in order if cat_id in valid_ids]
+    for cat in normalized_categories:
+        if cat['id'] not in order:
+            order.append(cat['id'])
+
+    return {
+        'categories': normalized_categories,
+        'order': order
+    }
+
+
+def save_result_config(config):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(RESULT_CONFIG_FILE, 'w', encoding='utf-8') as fp:
+        json.dump(config, fp, ensure_ascii=False, indent=2)
+
 
 # 管理者認証用デコレータ
 def admin_required(f):
@@ -128,12 +187,24 @@ def admin_logout():
 @app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
-    photos = get_photos()
-    # 写真をIDとファイル名のペアに変換
-    photos_data = [(i+1, photo) for i, photo in enumerate(photos)]
-    # ランキングデータは空（データベースがないため）
-    rankings = []
-    return render_template('admin_dashboard.html', photos=photos_data, rankings=rankings)
+    photos = get_photos(sort_by='upload')
+    photos_data = [
+        {
+            'id': idx + 1,
+            'filename': filename,
+            'url': url_for('serve_upload', filename=filename)
+        }
+        for idx, filename in enumerate(photos)
+    ]
+    result_config = load_result_config()
+    order_map = {cat_id: idx + 1 for idx, cat_id in enumerate(result_config['order'])}
+    return render_template(
+        'admin_dashboard.html',
+        photos=photos_data,
+        result_config=result_config,
+        result_config_json=json.dumps(result_config, ensure_ascii=False),
+        result_order_map=order_map
+    )
 
 # 管理者用スライドショールート
 @app.route('/admin/slideshow')
@@ -204,6 +275,65 @@ def show_ranking(group_id):
         'photos': []
     }
     return render_template('ranking.html', ranking=ranking_data)
+
+
+@app.route('/admin/result-config', methods=['POST'])
+@admin_required
+def update_result_config():
+    try:
+        payload = request.get_json(force=True)
+    except Exception:
+        return jsonify({'success': False, 'error': '無効なリクエストです'}), 400
+
+    categories_payload = payload.get('categories')
+    order_payload = payload.get('order') or []
+
+    if not isinstance(categories_payload, list) or len(categories_payload) != len(DEFAULT_CATEGORIES):
+        return jsonify({'success': False, 'error': 'カテゴリ情報が正しくありません'}), 400
+
+    categories_map = {item.get('id'): item for item in categories_payload if isinstance(item, dict) and item.get('id')}
+
+    normalized_categories = []
+    for default in DEFAULT_CATEGORIES:
+        incoming = categories_map.get(default['id'], {})
+        name = (incoming.get('name') or default['name']).strip()
+        photo = incoming.get('photo') or None
+        normalized_categories.append({
+            'id': default['id'],
+            'name': name if name else default['name'],
+            'photo': photo
+        })
+
+    desired_order = []
+    for cat_id in order_payload:
+        if isinstance(cat_id, str) and cat_id in {cat['id'] for cat in normalized_categories} and cat_id not in desired_order:
+            desired_order.append(cat_id)
+    for cat in normalized_categories:
+        if cat['id'] not in desired_order:
+            desired_order.append(cat['id'])
+
+    save_result_config({'categories': normalized_categories, 'order': desired_order})
+    return jsonify({'success': True})
+
+
+@app.route('/result')
+def result_page():
+    config = load_result_config()
+    categories_by_id = {cat['id']: cat for cat in config['categories']}
+    ordered_categories = []
+    for cat_id in config['order']:
+        cat = categories_by_id.get(cat_id)
+        if not cat:
+            continue
+        category_data = {
+            'id': cat['id'],
+            'name': cat['name'],
+            'photo': cat.get('photo'),
+            'photo_url': url_for('serve_upload', filename=cat['photo']) if cat.get('photo') else None
+        }
+        ordered_categories.append(category_data)
+
+    return render_template('result.html', categories=ordered_categories)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, host='0.0.0.0') 
