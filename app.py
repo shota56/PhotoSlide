@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template, redirect, url_for, jsonify, session, flash, send_from_directory
 from werkzeug.utils import secure_filename
 from functools import wraps
+from datetime import datetime
 import os
 
 app = Flask(__name__)
@@ -38,6 +39,23 @@ def get_photos(sort_by: str = 'name'):
     else:
         photos.sort()
     return photos
+
+
+def get_photo_details(sort_by: str = 'name'):
+    """写真の詳細情報（ファイル名、URL、タイムスタンプ）を取得"""
+    filenames = get_photos(sort_by=sort_by)
+    details = []
+    for name in filenames:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], name)
+        uploaded_at = None
+        if os.path.exists(filepath):
+            uploaded_at = datetime.fromtimestamp(os.path.getmtime(filepath))
+        details.append({
+            'filename': name,
+            'url': url_for('serve_upload', filename=name),
+            'uploaded_at': uploaded_at.isoformat() if uploaded_at else None
+        })
+    return details
 
 @app.route('/')
 def index():
@@ -77,7 +95,8 @@ def api_photos():
     """写真のリストをJSONで返すAPI"""
     photos = get_photos()
     photo_urls = [url_for('serve_upload', filename=photo) for photo in photos]
-    return jsonify({'photos': photos, 'photo_urls': photo_urls})
+    photo_details = get_photo_details()
+    return jsonify({'photos': photos, 'photo_urls': photo_urls, 'photo_details': photo_details})
 
 # 管理者ログインページ
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -115,22 +134,10 @@ def admin_dashboard():
 @app.route('/admin/slideshow')
 @admin_required
 def admin_slideshow():
-    photos = get_photos(sort_by='upload')
-    if photos:
-        offset = max(1, len(photos) // 3 or 1)
-        bottom_photos = photos[offset:] + photos[:offset]
-    else:
-        bottom_photos = []
-        offset = 1
-    photo_urls = [url_for('static', filename=f'uploads/{photo}') for photo in photos]
+    photo_details = get_photo_details(sort_by='upload')
     return render_template(
         'admin_slideshow.html',
-        photos=photos,
-        photos_top=photos,
-        photos_middle=photos,
-        photos_bottom=bottom_photos,
-        photo_urls=photo_urls,
-        bottom_offset=offset
+        photo_details=photo_details
     )
 
 
