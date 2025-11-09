@@ -273,7 +273,9 @@
             }
             middleTrack.innerHTML = '';
             const firstSetLength = recentPhotos.length;
+            const shouldLoop = firstSetLength >= 10;
             middleTrack.dataset.firstSetLength = firstSetLength;
+            middleTrack.dataset.loopEnabled = shouldLoop ? '1' : '0';
 
             if (!firstSetLength) {
                 middleTrack.classList.remove('animate');
@@ -282,17 +284,24 @@
             }
 
             const fragment = document.createDocumentFragment();
-            const duplicateFragment = document.createDocumentFragment();
-
             recentPhotos.forEach((photo, index) => {
                 const url = recentPhotoUrls[index] || buildPhotoUrl(photo);
                 fragment.appendChild(createImageElement(url, photo));
-                duplicateFragment.appendChild(createImageElement(url, photo));
             });
-
             middleTrack.appendChild(fragment);
-            middleTrack.appendChild(duplicateFragment);
-            restartTrackAnimation(middleTrack);
+
+            if (shouldLoop) {
+                const duplicateFragment = document.createDocumentFragment();
+                recentPhotos.forEach((photo, index) => {
+                    const url = recentPhotoUrls[index] || buildPhotoUrl(photo);
+                    duplicateFragment.appendChild(createImageElement(url, photo));
+                });
+                middleTrack.appendChild(duplicateFragment);
+                restartTrackAnimation(middleTrack);
+            } else {
+                middleTrack.classList.remove('animate');
+                middleTrack.style.animation = 'none';
+            }
         }
 
         function renderTopTrack() {
@@ -301,7 +310,9 @@
             }
             topTrack.innerHTML = '';
             const firstSetLength = topPhotos.length;
+            const shouldLoop = firstSetLength >= 20;
             topTrack.dataset.firstSetLength = firstSetLength;
+            topTrack.dataset.loopEnabled = shouldLoop ? '1' : '0';
 
             if (!firstSetLength) {
                 topTrack.classList.remove('animate');
@@ -310,21 +321,31 @@
             }
 
             const fragment = document.createDocumentFragment();
-            const duplicateFragment = document.createDocumentFragment();
-
             topPhotos.forEach((photo, index) => {
                 const url = topPhotoUrls[index] || buildPhotoUrl(photo);
                 fragment.appendChild(createImageElement(url, photo));
-                duplicateFragment.appendChild(createImageElement(url, photo));
             });
-
             topTrack.appendChild(fragment);
-            topTrack.appendChild(duplicateFragment);
-            restartTrackAnimation(topTrack);
+
+            if (shouldLoop) {
+                const duplicateFragment = document.createDocumentFragment();
+                topPhotos.forEach((photo, index) => {
+                    const url = topPhotoUrls[index] || buildPhotoUrl(photo);
+                    duplicateFragment.appendChild(createImageElement(url, photo));
+                });
+                topTrack.appendChild(duplicateFragment);
+                restartTrackAnimation(topTrack);
+            } else {
+                topTrack.classList.remove('animate');
+                topTrack.style.animation = 'none';
+            }
         }
 
         function tryIncrementalShift(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
             if (!track || !Array.isArray(prevPhotos) || !Array.isArray(nextPhotos)) {
+                return false;
+            }
+            if (track.dataset.loopEnabled !== '1') {
                 return false;
             }
             if (prevPhotos.length === 0 || nextPhotos.length === 0) {
@@ -508,6 +529,11 @@
         }
         
         function startAnimation(track) {
+            if (track.dataset.loopEnabled !== '1') {
+                track.classList.remove('animate');
+                track.style.animation = 'none';
+                return;
+            }
             track.classList.remove('init');
             track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
             track.classList.add('animate');
@@ -515,6 +541,11 @@
 
         function restartTrackAnimation(track) {
             if (!track) {
+                return;
+            }
+            if (track.dataset.loopEnabled !== '1') {
+                track.classList.remove('animate');
+                track.style.animation = 'none';
                 return;
             }
             track.classList.remove('animate');
