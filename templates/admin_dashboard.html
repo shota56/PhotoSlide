@@ -229,10 +229,20 @@
             {% endfor %}
         </div>
     </div>
+ 
+    <script type="application/json" id="result-config-data">{{ result_config|tojson }}</script>
 
     <script>
         const uploadsBaseUrl = "{{ url_for('serve_upload', filename='__PLACEHOLDER__') }}".replace('__PLACEHOLDER__', '');
-        const initialConfig = {{ result_config|tojson|safe }};
+        const configElement = document.getElementById('result-config-data');
+        let initialConfig = { categories: [], order: [] };
+        if (configElement && configElement.textContent) {
+            try {
+                initialConfig = JSON.parse(configElement.textContent);
+            } catch (error) {
+                console.warn('Failed to parse result config:', error);
+            }
+        }
 
         const categoriesState = new Map();
         const orderUsage = new Map();
