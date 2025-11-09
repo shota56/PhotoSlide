@@ -67,18 +67,6 @@
         button:hover {
             background-color: #2980b9;
         }
-        .slideshow-link {
-            display: block;
-            text-align: center;
-            margin-top: 20px;
-            color: #3498db;
-            text-decoration: none;
-            font-size: 1rem;
-            padding: 10px;
-        }
-        .slideshow-link:hover {
-            text-decoration: underline;
-        }
 
         /* 写真一覧用の追加スタイル */
         .gallery-container {
@@ -149,10 +137,6 @@
                 gap: 10px;
                 padding: 5px;
             }
-            .slideshow-link {
-                font-size: 0.9rem;
-                padding: 15px;
-            }
         }
 
         /* さらに小さい画面用 */
@@ -209,12 +193,11 @@
             </div>
             <button type="submit">投稿する</button>
         </form>
-        <a href="/slideshow" class="slideshow-link">投稿済み写真を見る →</a>
     </div>
 
     <!-- 写真一覧を追加 -->
     <div class="gallery-container">
-        <h2 class="gallery-title">投稿済み</h2>
+        <h2 class="gallery-title">みんなの投稿</h2>
         <div class="photo-grid">
             {% if photos %}
                 {% for photo in photos|reverse %}

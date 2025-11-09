@@ -27,6 +27,20 @@
             background: rgba(0, 0, 0, 0.92);
         }
 
+        body.single-lane .top-row {
+            display: none;
+        }
+
+        body.single-lane .middle-row {
+            height: 80vh;
+            margin-top: 10vh;
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        body.single-lane .middle-row img {
+            height: calc(80vh - 20px);
+        }
+
         .slide-track {
             display: inline-block;
             white-space: nowrap;
@@ -63,8 +77,8 @@
         }
     </style>
 </head>
-<body>
-    <!-- 上段のスライダー -->
+<body class="theme-dark{% if not photos_top %} single-lane{% endif %}">
+    {% if photos_top %}
     <div class="slider-row top-row">
         <div class="slide-track" id="topTrack" data-first-set-length="{{ photos_top|length }}">
             {% for photo in photos_top %}
@@ -75,6 +89,7 @@
             {% endfor %}
         </div>
     </div>
+    {% endif %}
 
     <!-- 下段のスライダー -->
     <div class="slider-row middle-row">

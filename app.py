@@ -85,11 +85,6 @@ def upload_photo():
         'photo_url': photo_url
     })
 
-@app.route('/slideshow')
-def slideshow():
-    photos = get_photos()
-    return render_template('slideshow.html', photos=photos)
-
 @app.route('/api/photos')
 def api_photos():
     """写真のリストをJSONで返すAPI"""
