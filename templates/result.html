@@ -8,20 +8,57 @@
     <style>
         * {
             cursor: none !important;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+        
         body {
-            background: radial-gradient(circle at 20% 20%, rgba(255, 223, 110, 0.45), rgba(0, 0, 0, 0.95) 55%),
-                        radial-gradient(circle at 80% 30%, rgba(255, 105, 180, 0.4), rgba(0, 0, 0, 0.9) 60%),
-                        radial-gradient(circle at 50% 80%, rgba(135, 206, 235, 0.3), rgba(0, 0, 0, 0.95) 65%),
-                        linear-gradient(135deg, rgba(0,0,0,0.9), rgba(10,10,10,0.95));
+            background: 
+                radial-gradient(ellipse 80% 50% at 15% 25%, rgba(255, 223, 110, 0.5) 0%, transparent 50%),
+                radial-gradient(ellipse 80% 50% at 85% 35%, rgba(255, 105, 180, 0.45) 0%, transparent 50%),
+                radial-gradient(ellipse 80% 50% at 50% 75%, rgba(135, 206, 235, 0.35) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 30% 60%, rgba(147, 112, 219, 0.25) 0%, transparent 40%),
+                radial-gradient(ellipse 60% 40% at 70% 15%, rgba(255, 182, 193, 0.2) 0%, transparent 40%),
+                linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(10, 5, 20, 0.98) 50%, rgba(0, 0, 0, 0.95) 100%);
+            background-attachment: fixed;
             color: #fff;
             min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
         }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
+            animation: backgroundShift 20s ease-in-out infinite alternate;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        @keyframes backgroundShift {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-2%, -2%) scale(1.05);
+                opacity: 0.8;
+            }
+        }
+        
         #slides {
             position: relative;
             width: 100%;
             height: 100vh;
+            z-index: 1;
         }
+        
         .slide {
             position: absolute;
             inset: 0;
@@ -30,91 +67,206 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            gap: 2.5rem;
+            padding: 4rem 2rem;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.6s ease;
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        
         .slide.active {
             opacity: 1;
             pointer-events: auto;
         }
-        .fade-in {
+        
+        .slide-content {
+            max-width: 1200px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3rem;
+        }
+        
+        .title-slide {
+            gap: 2rem;
+        }
+        
+        .title-slide .subtitle {
+            font-size: 0.875rem;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 300;
             opacity: 0;
             transform: translateY(20px);
-            transition: opacity 0.8s ease, transform 0.8s ease;
+            transition: opacity 1s ease 0.2s, transform 1s ease 0.2s;
         }
-        .slide.active .fade-in {
+        
+        .slide.active .title-slide .subtitle {
             opacity: 1;
             transform: translateY(0);
         }
+        
+        .title-slide .main-title {
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 1s ease 0.4s, transform 1s ease 0.4s;
+        }
+        
+        .slide.active .title-slide .main-title {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .category-slide-content {
+            gap: 4rem;
+        }
+        
+        .category-header {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        
+        .slide.active .category-header {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .category-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 300;
+            margin-bottom: 1rem;
+        }
+        
+        .category-name {
+            font-size: clamp(2rem, 6vw, 4rem);
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.2;
+        }
+        
         .hero-wrapper {
-            width: min(90vw, 900px);
-            max-height: 70vh;
-            border-radius: 24px;
-            background: rgba(255, 255, 255, 0.06);
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
+            width: 100%;
+            max-width: 1000px;
+            max-height: 65vh;
             position: relative;
-            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            backdrop-filter: blur(4px);
-            padding: 20px;
-            box-sizing: border-box;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 1s ease 0.3s, transform 1s ease 0.3s;
         }
-        .hero-wrapper::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            pointer-events: none;
+        
+        .slide.active .hero-wrapper {
+            opacity: 1;
+            transform: scale(1);
         }
+        
         .hero-wrapper img {
             max-width: 100%;
             max-height: 100%;
             width: auto;
             height: auto;
             object-fit: contain;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
         }
-        .confetti {
-            position: absolute;
-            inset: 0;
-            background-image:
-                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.25) 0, rgba(255, 255, 255, 0.0) 55%),
-                radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.18) 0, rgba(255, 255, 255, 0.0) 50%),
-                radial-gradient(circle at 40% 70%, rgba(255, 255, 255, 0.2) 0, rgba(255, 255, 255, 0.0) 55%);
-            opacity: 0.35;
-            pointer-events: none;
+        
+        .ending-slide {
+            gap: 2rem;
+        }
+        
+        .ending-title {
+            font-size: clamp(2rem, 6vw, 4rem);
+            font-weight: 600;
+            color: #fff;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 1s ease 0.2s, transform 1s ease 0.2s;
+        }
+        
+        .slide.active .ending-title {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .ending-message {
+            font-size: clamp(1.25rem, 3vw, 2rem);
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 300;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 1s ease 0.5s, transform 1s ease 0.5s;
+        }
+        
+        .slide.active .ending-message {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        
+        @media (max-width: 768px) {
+            .slide {
+                padding: 2rem 1rem;
+            }
+            
+            .slide-content {
+                gap: 2rem;
+            }
+            
+            .category-slide-content {
+                gap: 2.5rem;
+            }
         }
     </style>
 </head>
-<body class="w-full h-screen overflow-hidden">
+<body>
     <div id="slides">
+        <!-- タイトルスライド -->
         <section class="slide active" data-index="0">
-            <div class="fade-in text-xs uppercase tracking-[0.3em] text-gray-300">Special Event</div>
-            <div class="fade-in text-4xl md:text-6xl font-bold tracking-widest">フォトコンテスト結果発表</div>
+            <div class="slide-content title-slide">
+                <div class="subtitle">Special Event</div>
+                <h1 class="main-title">フォトコンテスト結果発表</h1>
+            </div>
         </section>
+        
+        <!-- カテゴリスライド -->
         {% for category in categories %}
         <section class="slide category-slide" data-index="{{ loop.index }}" data-category-state="title-only">
-            <div class="fade-in category-title">
-                <p class="text-sm uppercase tracking-[0.3em] text-gray-300">Award</p>
-                <h2 class="mt-2 text-3xl md:text-5xl font-semibold">{{ category.name }}</h2>
-            </div>
-            <div class="fade-in hero-wrapper category-image" style="display: none;">
-                <div class="confetti"></div>
-                {% if category.photo_url %}
-                <img src="{{ category.photo_url }}" alt="{{ category.name }}">
-                {% else %}
-                <p class="text-gray-300">写真が選出されていません</p>
-                {% endif %}
+            <div class="slide-content category-slide-content">
+                <div class="category-header">
+                    <div class="category-label">Award</div>
+                    <h2 class="category-name">{{ category.name }}</h2>
+                </div>
+                <div class="hero-wrapper category-image" style="display: none;">
+                    {% if category.photo_url %}
+                    <img src="{{ category.photo_url }}" alt="{{ category.name }}">
+                    {% else %}
+                    <p style="color: rgba(255, 255, 255, 0.5); font-size: 1.25rem;">写真が選出されていません</p>
+                    {% endif %}
+                </div>
             </div>
         </section>
         {% endfor %}
-        <section class="slide" data-index="{{ categories|length + 1 }}">
-            <div class="fade-in text-3xl md:text-5xl font-semibold">ご参加ありがとうございました</div>
-            <div class="fade-in text-gray-300">引き続き素敵な時間をお過ごしください</div>
+        
+        <!-- エンディングスライド -->
+        <section class="slide ending-slide" data-index="{{ categories|length + 1 }}">
+            <div class="slide-content">
+                <h2 class="ending-title">ご参加ありがとうございました</h2>
+                <p class="ending-message">引き続き素敵な時間をお過ごしください</p>
+            </div>
         </section>
     </div>
 
