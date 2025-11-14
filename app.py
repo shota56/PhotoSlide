@@ -95,7 +95,7 @@ def get_photos(sort_by: str = 'name'):
               if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
     if sort_by == 'upload':
         upload_folder = app.config['UPLOAD_FOLDER']
-        photos.sort(key=lambda filename: os.path.getmtime(os.path.join(upload_folder, filename)))
+        photos.sort(key=lambda filename: os.path.getmtime(os.path.join(upload_folder, filename)), reverse=True)
     else:
         photos.sort()
     return photos
