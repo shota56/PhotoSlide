@@ -18,7 +18,7 @@
         }
 
         .top-row {
-            height: 32vh;
+            height: 42vh;
             background: rgba(0, 0, 0, 0.85);
             margin-bottom: 8px;
         }
@@ -33,13 +33,13 @@
         }
 
         body.single-lane .middle-row {
-            height: 80vh;
-            margin-top: 10vh;
+            height: 90vh;
+            margin-top: 5vh;
             background: rgba(0, 0, 0, 0.9);
         }
 
         body.single-lane .middle-row img {
-            height: calc(80vh - 20px);
+            height: calc(90vh - 20px);
         }
 
         .slide-track {
@@ -61,7 +61,7 @@
         }
 
         .top-row img {
-            height: calc(28vh - 16px);
+            height: calc(38vh - 16px);
             width: auto;
         }
 
@@ -437,11 +437,12 @@
 
             const payloadRecentPhotos = Array.isArray(payload.recent_photos) ? payload.recent_photos : null;
             const payloadRecentPhotoUrls = Array.isArray(payload.recent_photo_urls) ? payload.recent_photo_urls : null;
-            const newRecentPhotos = payloadRecentPhotos ? payloadRecentPhotos.slice() : currentPhotos.slice(-10);
+            // 最新10投稿が2レーン目
+            const newRecentPhotos = payloadRecentPhotos ? payloadRecentPhotos.slice() : currentPhotos.slice(0, 10);
             const newRecentPhotoUrls = payloadRecentPhotoUrls
                 ? payloadRecentPhotoUrls.slice()
                 : (Array.isArray(newPhotoUrls)
-                    ? newPhotoUrls.slice(-10)
+                    ? newPhotoUrls.slice(0, 10)
                     : newRecentPhotos.map(buildPhotoUrl));
 
             const recentChanged = !arraysEqual(newRecentPhotos, recentPhotos) || !arraysEqual(newRecentPhotoUrls, recentPhotoUrls);
@@ -463,13 +464,12 @@
 
             const payloadTopPhotos = Array.isArray(payload.top_photos) ? payload.top_photos : null;
             const payloadTopPhotoUrls = Array.isArray(payload.top_photo_urls) ? payload.top_photo_urls : null;
-            const topStart = Math.max(0, currentPhotos.length - 30);
-            const topEnd = Math.max(0, currentPhotos.length - 10);
-            const newTopPhotos = payloadTopPhotos ? payloadTopPhotos.slice() : currentPhotos.slice(topStart, topEnd);
+            // 11枚目~30枚目が1レーン目
+            const newTopPhotos = payloadTopPhotos ? payloadTopPhotos.slice() : currentPhotos.slice(10, 30);
             const newTopPhotoUrls = payloadTopPhotoUrls
                 ? payloadTopPhotoUrls.slice()
                 : (Array.isArray(newPhotoUrls)
-                    ? newPhotoUrls.slice(topStart, topEnd)
+                    ? newPhotoUrls.slice(10, 30)
                     : newTopPhotos.map(buildPhotoUrl));
 
             const topChanged = !arraysEqual(newTopPhotos, topPhotos) || !arraysEqual(newTopPhotoUrls, topPhotoUrls);

@@ -150,8 +150,9 @@ def api_photos():
     """写真のリストをJSONで返すAPI"""
     photos = get_photos(sort_by='upload')
     photo_urls = [url_for('serve_upload', filename=photo) for photo in photos]
-    recent_photos = photos[-10:]
-    top_photos = photos[-30:-10] if len(photos) > 10 else photos[:-10]
+    # 最新10投稿が2レーン目、11枚目~30枚目が1レーン目
+    recent_photos = photos[:10]  # 最新10枚
+    top_photos = photos[10:30] if len(photos) > 10 else []  # 11枚目~30枚目
     recent_photo_urls = [url_for('serve_upload', filename=photo) for photo in recent_photos]
     top_photo_urls = [url_for('serve_upload', filename=photo) for photo in top_photos]
     return jsonify({
@@ -216,8 +217,9 @@ def admin_dashboard():
 @admin_required
 def admin_slideshow():
     photos = get_photos(sort_by='upload')
-    recent_photos = photos[-10:]
-    top_photos = photos[-30:-10] if len(photos) > 10 else photos[:-10]
+    # 最新10投稿が2レーン目、11枚目~30枚目が1レーン目
+    recent_photos = photos[:10]  # 最新10枚
+    top_photos = photos[10:30] if len(photos) > 10 else []  # 11枚目~30枚目
     photo_urls = [url_for('serve_upload', filename=photo) for photo in photos]
     recent_photo_urls = [url_for('serve_upload', filename=photo) for photo in recent_photos]
     top_photo_urls = [url_for('serve_upload', filename=photo) for photo in top_photos]
