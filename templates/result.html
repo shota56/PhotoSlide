@@ -13,6 +13,7 @@
                         linear-gradient(135deg, rgba(0,0,0,0.9), rgba(10,10,10,0.95));
             color: #fff;
             min-height: 100vh;
+            cursor: none;
         }
         #slides {
             position: relative;
@@ -90,12 +91,12 @@
             <div class="fade-in text-4xl md:text-6xl font-bold tracking-widest">フォトコンテスト結果発表</div>
         </section>
         {% for category in categories %}
-        <section class="slide" data-index="{{ loop.index }}">
-            <div class="fade-in">
+        <section class="slide category-slide" data-index="{{ loop.index }}" data-category-state="title-only">
+            <div class="fade-in category-title">
                 <p class="text-sm uppercase tracking-[0.3em] text-gray-300">Award</p>
                 <h2 class="mt-2 text-3xl md:text-5xl font-semibold">{{ category.name }}</h2>
             </div>
-            <div class="fade-in hero-wrapper">
+            <div class="fade-in hero-wrapper category-image" style="display: none;">
                 <div class="confetti"></div>
                 {% if category.photo_url %}
                 <img src="{{ category.photo_url }}" alt="{{ category.name }}">
@@ -122,9 +123,81 @@
         }
 
         function goNext() {
+            const currentSlide = slides[currentIndex];
+            const isCategorySlide = currentSlide.classList.contains('category-slide');
+            
+            if (isCategorySlide) {
+                const state = currentSlide.dataset.categoryState;
+                if (state === 'title-only') {
+                    // タイトルのみ表示中 → 画像も表示
+                    currentSlide.dataset.categoryState = 'full';
+                    const imageWrapper = currentSlide.querySelector('.category-image');
+                    if (imageWrapper) {
+                        imageWrapper.style.display = 'flex';
+                    }
+                    return;
+                }
+            }
+            
+            // 通常の次のスライドへ
             if (currentIndex < slides.length - 1) {
                 currentIndex += 1;
                 showSlide(currentIndex);
+                // カテゴリスライドの場合、状態をリセット
+                const newSlide = slides[currentIndex];
+                if (newSlide.classList.contains('category-slide')) {
+                    newSlide.dataset.categoryState = 'title-only';
+                    const imageWrapper = newSlide.querySelector('.category-image');
+                    if (imageWrapper) {
+                        imageWrapper.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        function goPrev() {
+            const currentSlide = slides[currentIndex];
+            const isCategorySlide = currentSlide.classList.contains('category-slide');
+            
+            if (isCategorySlide) {
+                const state = currentSlide.dataset.categoryState;
+                if (state === 'full') {
+                    // 画像表示中 → タイトルのみに戻る
+                    currentSlide.dataset.categoryState = 'title-only';
+                    const imageWrapper = currentSlide.querySelector('.category-image');
+                    if (imageWrapper) {
+                        imageWrapper.style.display = 'none';
+                    }
+                    return;
+                }
+            }
+            
+            // 通常の前のスライドへ
+            if (currentIndex > 0) {
+                currentIndex -= 1;
+                showSlide(currentIndex);
+                // カテゴリスライドの場合、状態をリセット
+                const newSlide = slides[currentIndex];
+                if (newSlide.classList.contains('category-slide')) {
+                    newSlide.dataset.categoryState = 'title-only';
+                    const imageWrapper = newSlide.querySelector('.category-image');
+                    if (imageWrapper) {
+                        imageWrapper.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        function handleInteraction(event) {
+            const clientX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : event.changedTouches[0].clientX);
+            const screenWidth = window.innerWidth;
+            
+            if (clientX > screenWidth / 2) {
+                // 右側をクリック/タップ → 次へ
+                goNext();
+            } else {
+                // 左側をクリック/タップ → 戻る
+                goPrev();
             }
         }
 
@@ -132,16 +205,20 @@
             if (event.key === 'Enter' || event.key === 'NumpadEnter') {
                 event.preventDefault();
                 goNext();
+            } else if (event.key === 'ArrowLeft' || event.key === 'Backspace') {
+                event.preventDefault();
+                goPrev();
+            } else if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                goNext();
             }
         });
 
-        document.addEventListener('click', () => {
-            goNext();
-        });
-
-        document.addEventListener('touchend', () => {
-            goNext();
-        });
+        document.addEventListener('click', handleInteraction);
+        document.addEventListener('touchend', handleInteraction);
+        
+        // 初期状態の設定
+        showSlide(0);
     </script>
 </body>
 </html>

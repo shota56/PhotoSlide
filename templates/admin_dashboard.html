@@ -361,6 +361,14 @@
         updateOrderUsage();
 
         document.querySelectorAll('.photo-item').forEach((item) => {
+            // 削除ボタンのクリックイベントを親要素に伝播させない
+            const deleteBtn = item.querySelector('.delete-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+            
             item.addEventListener('click', () => {
                 if (!activeCategoryId) {
                     alert('写真を割り当てるカテゴリを選んでください。');
