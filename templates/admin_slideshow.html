@@ -390,57 +390,187 @@
             
             // 既存のアニメーションループを停止
             const existingLoop = animationLoops.get(track);
-            if (existingLoop && existingLoop.isRunning) {
-                existingLoop.isRunning = false;
-                console.log('[DEBUG startJavaScriptAnimation] Stopped existing loop');
+            if (existingLoop) {
+                if (existingLoop.isRunning) {
+                    existingLoop.isRunning = false;
+                    console.log('[DEBUG startJavaScriptAnimation] Stopped existing loop');
+                }
+                // 既存のフレームIDをキャンセル
+                if (existingLoop.frameId) {
+                    try {
+                        cancelAnimationFrame(existingLoop.frameId);
+                    } catch (e) {
+                        // 無視
+                    }
+                }
             }
             
-            // 新しいアニメーションループを開始
+            // 新しいアニメーションループを開始（無限ループを保証）
             const loop = {
                 startX: startX,
                 targetX: startX - firstSetWidth,
                 startTime: performance.now(),
                 firstSetWidth: firstSetWidth,
-                isRunning: true
+                isRunning: true,
+                lastFrameTime: performance.now(),
+                frameId: null,
+                cycleCount: 0 // サイクル数を追跡（デバッグ用）
             };
             animationLoops.set(track, loop);
             
-            console.log('[DEBUG startJavaScriptAnimation] Starting animation', {
+            console.log('[DEBUG startJavaScriptAnimation] Starting infinite animation', {
                 startX,
                 targetX: loop.targetX,
                 firstSetWidth,
                 trackId: track.id
             });
             
+            // 無限ループを保証するアニメーションフレーム関数
             function animateFrame() {
-                const loop = animationLoops.get(track);
-                if (!loop || !loop.isRunning || !track.classList.contains('animate')) {
-                    if (!loop || !loop.isRunning) {
-                        console.log('[DEBUG animateFrame] Loop stopped', { hasLoop: !!loop, isRunning: loop?.isRunning });
+                // アニメーションが停止している場合は即座に再開を試みる
+                if (!loop.isRunning || !track.classList.contains('animate')) {
+                    if (track.classList.contains('animate') && track.dataset.loopEnabled === '1') {
+                        const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+                        if (firstSetWidth > 0) {
+                            const computedStyle = window.getComputedStyle(track);
+                            const currentTransform = computedStyle.transform;
+                            let restartX = 0;
+                            if (currentTransform && currentTransform !== 'none') {
+                                const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                                if (matrix) {
+                                    const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                                    restartX = values[4] || 0;
+                                }
+                            }
+                            console.log('[DEBUG animateFrame] Loop stopped, restarting', { trackId: track.id, restartX, isRunning: loop.isRunning });
+                            loop.isRunning = false;
+                            startJavaScriptAnimation(track, firstSetWidth, restartX);
+                        }
                     }
                     return;
                 }
                 
-                const elapsed = (performance.now() - loop.startTime) / 1000;
-                const progress = elapsed / FIXED_ANIMATION_DURATION;
-                
-                if (progress < 1) {
-                    // 1サイクル未満の場合
-                    const currentX = loop.startX + (loop.targetX - loop.startX) * progress;
-                    track.style.transform = `translateX(${currentX}px)`;
-                    requestAnimationFrame(animateFrame);
-                } else {
-                    // 1サイクル完了したら、ループを継続
-                    const cycleCount = Math.floor(progress);
-                    const remainingProgress = progress - cycleCount;
-                    const currentX = loop.startX - (loop.firstSetWidth * cycleCount) - (loop.firstSetWidth * remainingProgress);
+                try {
+                    const currentLoop = animationLoops.get(track);
+                    if (!currentLoop || currentLoop !== loop) {
+                        // ループが置き換えられた場合は終了
+                        return;
+                    }
+                    
+                    const currentTime = performance.now();
+                    
+                    // フレームが更新されているかチェック（1秒以上更新されていない場合は再開）
+                    if (loop.lastFrameTime && (currentTime - loop.lastFrameTime > 1000)) {
+                        console.log('[DEBUG animateFrame] Frame not updating, restarting', { trackId: track.id, timeSinceLastFrame: currentTime - loop.lastFrameTime });
+                        if (track.classList.contains('animate') && track.dataset.loopEnabled === '1') {
+                            const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+                            if (firstSetWidth > 0) {
+                                const computedStyle = window.getComputedStyle(track);
+                                const currentTransform = computedStyle.transform;
+                                let restartX = 0;
+                                if (currentTransform && currentTransform !== 'none') {
+                                    const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                                    if (matrix) {
+                                        const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                                        restartX = values[4] || 0;
+                                    }
+                                }
+                                // 現在のループを停止してから再開
+                                loop.isRunning = false;
+                                startJavaScriptAnimation(track, firstSetWidth, restartX);
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // このチェックは既に最初に行われているので、ここでは削除
+                    
+                    loop.lastFrameTime = currentTime;
+                    
+                    // 経過時間を計算
+                    const elapsed = (currentTime - loop.startTime) / 1000;
+                    // 進捗を0-1の範囲に正規化（無限ループを保証）
+                    let progress = (elapsed / FIXED_ANIMATION_DURATION) % 1;
+                    
+                    // 完了したサイクル数を計算
+                    const completedCycles = Math.floor(elapsed / FIXED_ANIMATION_DURATION);
+                    
+                    // 現在の位置を計算（常に0-1の進捗で計算）
+                    // サイクルが完了した場合も、進捗を正規化して計算することで無限ループを保証
+                    let currentX = loop.startX + (loop.targetX - loop.startX) * progress;
                     track.style.transform = `translateX(${currentX}px)`;
                     
-                    // 次のサイクルを開始
-                    loop.startX = currentX;
-                    loop.targetX = currentX - loop.firstSetWidth;
-                    loop.startTime = performance.now();
-                    requestAnimationFrame(animateFrame);
+                    // サイクルが完了した場合（progressが0に近い、または1に近い場合）、
+                    // startTimeをリセットして数値の精度を保つ（無限ループを保証）
+                    if (progress < 0.01 && completedCycles > 0) {
+                        // 現在の位置を基準に、次のサイクルを開始
+                        // 位置をリセットせず、startTimeのみをリセット
+                        loop.startX = currentX;
+                        loop.targetX = currentX - loop.firstSetWidth;
+                        // startTimeを現在の時刻にリセット
+                        loop.startTime = currentTime;
+                        // サイクル数を更新（デバッグ用）
+                        loop.cycleCount = (loop.cycleCount || 0) + completedCycles;
+                    }
+                    
+                    // 次のフレームをスケジュール（無限ループを保証）
+                    // 既存のフレームIDをキャンセル（二重スケジュールを防ぐ）
+                    if (loop.frameId !== null && loop.frameId !== undefined) {
+                        try {
+                            cancelAnimationFrame(loop.frameId);
+                        } catch (e) {
+                            // 無視
+                        }
+                    }
+                    
+                    // requestAnimationFrameを確実に呼び出す（無限ループを保証）
+                    // エラーが発生しても、必ず次のフレームをスケジュールする
+                    try {
+                        loop.frameId = requestAnimationFrame(animateFrame);
+                        // requestAnimationFrameが失敗した場合のフォールバック
+                        if (!loop.frameId || loop.frameId === 0) {
+                            console.warn('[DEBUG] requestAnimationFrame returned invalid ID, using setTimeout', { trackId: track.id });
+                            loop.frameId = null;
+                            // setTimeoutで代替（確実に次のフレームをスケジュール）
+                            setTimeout(() => {
+                                const currentLoop = animationLoops.get(track);
+                                if (currentLoop && currentLoop === loop && currentLoop.isRunning && track.classList.contains('animate')) {
+                                    animateFrame();
+                                }
+                            }, 16);
+                        }
+                    } catch (e) {
+                        console.error('[DEBUG] Error scheduling next frame', e);
+                        loop.frameId = null;
+                        // エラーが発生しても、setTimeoutで代替（無限ループを保証）
+                        setTimeout(() => {
+                            const currentLoop = animationLoops.get(track);
+                            if (currentLoop && currentLoop === loop && currentLoop.isRunning && track.classList.contains('animate')) {
+                                animateFrame();
+                            }
+                        }, 16);
+                    }
+                } catch (error) {
+                    console.error('[DEBUG animateFrame] Error:', error);
+                    // エラーが発生した場合も、アニメーションを再開
+                    if (track.classList.contains('animate') && track.dataset.loopEnabled === '1') {
+                        const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+                        if (firstSetWidth > 0) {
+                            const computedStyle = window.getComputedStyle(track);
+                            const currentTransform = computedStyle.transform;
+                            let restartX = 0;
+                            if (currentTransform && currentTransform !== 'none') {
+                                const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                                if (matrix) {
+                                    const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                                    restartX = values[4] || 0;
+                                }
+                            }
+                            setTimeout(() => {
+                                startJavaScriptAnimation(track, firstSetWidth, restartX);
+                            }, 100);
+                        }
+                    }
                 }
             }
             
@@ -449,7 +579,7 @@
             // 開始位置を設定（重要：これがないと位置がリセットされる）
             track.style.transform = `translateX(${startX}px)`;
             console.log('[DEBUG startJavaScriptAnimation] Set initial transform:', startX);
-            requestAnimationFrame(animateFrame);
+            loop.frameId = requestAnimationFrame(animateFrame);
         }
         
         function handleAnimationStart(track, firstSetWidth, preservePosition, oldFirstSetWidth, currentTranslateX) {
@@ -1264,8 +1394,28 @@
             if (!document.hidden) {
                 const tracks = document.querySelectorAll('.slide-track');
                 tracks.forEach(track => {
-                    if (!track.classList.contains('animate') && track.querySelectorAll('img').length > 0) {
-                        startAnimation(track);
+                    if (track.dataset.loopEnabled === '1') {
+                        const loop = animationLoops.get(track);
+                        if (!loop || !loop.isRunning) {
+                            // アニメーションが停止している場合は再開
+                            const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+                            if (firstSetWidth > 0) {
+                                // 現在の位置を取得
+                                const computedStyle = window.getComputedStyle(track);
+                                const currentTransform = computedStyle.transform;
+                                let startX = 0;
+                                if (currentTransform && currentTransform !== 'none') {
+                                    const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                                    if (matrix) {
+                                        const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                                        startX = values[4] || 0;
+                                    }
+                                }
+                                startJavaScriptAnimation(track, firstSetWidth, startX);
+                            } else {
+                                startAnimation(track);
+                            }
+                        }
                     }
                 });
                 requestImmediateRefresh();
@@ -1276,6 +1426,53 @@
                 }
             }
         });
+        
+        // 定期的にアニメーションの状態をチェックして、停止している場合は再開（20分以上継続させるため）
+        const animationCheckInterval = setInterval(function() {
+            if (document.hidden) {
+                return;
+            }
+            const tracks = document.querySelectorAll('.slide-track');
+            tracks.forEach(track => {
+                if (track.dataset.loopEnabled === '1' && track.classList.contains('animate')) {
+                    const loop = animationLoops.get(track);
+                    const computedStyle = window.getComputedStyle(track);
+                    const currentTransform = computedStyle.transform;
+                    const currentTime = performance.now();
+                    
+                    // アニメーションが停止している、またはtransformが設定されていない場合は再開
+                    let shouldRestart = false;
+                    if (!loop || !loop.isRunning) {
+                        shouldRestart = true;
+                        console.log('[DEBUG] Animation loop not running', { trackId: track.id, hasLoop: !!loop, isRunning: loop?.isRunning });
+                    } else if (!currentTransform || currentTransform === 'none') {
+                        shouldRestart = true;
+                        console.log('[DEBUG] Transform is none', { trackId: track.id });
+                    } else if (loop.lastFrameTime && (currentTime - loop.lastFrameTime > 3000)) {
+                    // 1秒以上フレームが更新されていない場合は再開（より頻繁にチェック）
+                    shouldRestart = true;
+                    console.log('[DEBUG] Frame not updating for 1+ seconds', { trackId: track.id, timeSinceLastFrame: currentTime - loop.lastFrameTime });
+                    }
+                    
+                    if (shouldRestart) {
+                        const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+                        if (firstSetWidth > 0) {
+                            // 現在の位置を取得
+                            let startX = 0;
+                            if (currentTransform && currentTransform !== 'none') {
+                                const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                                if (matrix) {
+                                    const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                                    startX = values[4] || 0;
+                                }
+                            }
+                            console.log('[DEBUG] Restarting stopped animation', { trackId: track.id, startX, firstSetWidth });
+                            startJavaScriptAnimation(track, firstSetWidth, startX);
+                        }
+                    }
+                }
+            });
+        }, 250); // 0.25秒ごとにチェック（より頻繁にチェックして確実に継続）
 
         function insertTopLaneSkeleton() {
             const container = document.querySelector('.slideshow-app');
