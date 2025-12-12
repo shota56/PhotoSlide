@@ -554,6 +554,178 @@
             return true;
         }
 
+        function smoothAddNewPhotoAtEnd(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
+            console.log('[DEBUG smoothAddNewPhotoAtEnd] Start');
+            if (!track || !Array.isArray(prevPhotos) || !Array.isArray(nextPhotos)) {
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: track or arrays invalid');
+                return false;
+            }
+            if (track.dataset.loopEnabled !== '1') {
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: loop not enabled', track.dataset.loopEnabled);
+                return false;
+            }
+            if (prevPhotos.length === 0 || nextPhotos.length === 0) {
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: empty arrays', prevPhotos.length, nextPhotos.length);
+                return false;
+            }
+            if (prevPhotos.length !== nextPhotos.length) {
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: length mismatch', prevPhotos.length, nextPhotos.length);
+                return false;
+            }
+
+            // 最初のN-1個の要素が一致し、最後の要素が新しい写真であることを確認
+            const prevPhotosMatch = prevPhotos.slice(0, -1).every((photo, i) => photo === nextPhotos[i]);
+            const newPhotoAtEnd = nextPhotos[nextPhotos.length - 1] !== prevPhotos[prevPhotos.length - 1];
+            
+            if (!prevPhotosMatch || !newPhotoAtEnd) {
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: not a simple end addition', {
+                    prevPhotosMatch,
+                    newPhotoAtEnd,
+                    prevLast: prevPhotos[prevPhotos.length - 1],
+                    nextLast: nextPhotos[nextPhotos.length - 1]
+                });
+                return false;
+            }
+
+            const firstSetLength = Number(track.dataset.firstSetLength || 0);
+            if (firstSetLength !== prevPhotos.length) {
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: firstSetLength mismatch', firstSetLength, prevPhotos.length);
+                return false;
+            }
+
+            const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+            if (firstSetWidth === 0) {
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: firstSetWidth is 0');
+                return false;
+            }
+
+            // 現在の位置を取得
+            track.style.animationPlayState = 'paused';
+            const computedStyle = window.getComputedStyle(track);
+            const currentTransform = computedStyle.transform;
+            let currentTranslateX = 0;
+            
+            if (currentTransform && currentTransform !== 'none') {
+                const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                if (matrix) {
+                    const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                    currentTranslateX = values[4] || 0;
+                }
+            }
+            
+            if (currentTranslateX === 0 && track.classList.contains('animate')) {
+                const currentProgress = getCurrentAnimationProgress(track);
+                currentTranslateX = -(currentProgress * firstSetWidth);
+            }
+            
+            console.log('[DEBUG smoothAddNewPhotoAtEnd] Current position:', currentTranslateX, 'firstSetWidth:', firstSetWidth);
+
+            // アニメーションを停止
+            track.classList.remove('animate');
+            track.style.animation = 'none';
+            track.style.transform = `translateX(${currentTranslateX}px)`;
+            void track.offsetWidth;
+
+            // 最後の要素（古い最後の写真）を削除し、新しい写真を追加
+            const newPhoto = nextPhotos[nextPhotos.length - 1];
+            const newUrl = nextPhotoUrls
+                ? nextPhotoUrls[nextPhotoUrls.length - 1]
+                : buildPhotoUrl(newPhoto);
+
+            // 最初のセットの最後の要素を削除
+            const lastPrimaryIndex = firstSetLength - 1;
+            const lastPrimary = track.children[lastPrimaryIndex];
+            if (lastPrimary) {
+                track.removeChild(lastPrimary);
+            }
+
+            // 2つ目のセットの最後の要素を削除
+            const lastDuplicateIndex = firstSetLength * 2 - 1;
+            const lastDuplicate = track.children[lastDuplicateIndex];
+            if (lastDuplicate) {
+                track.removeChild(lastDuplicate);
+            }
+
+            // 新しい写真を最初のセットの最後に追加
+            const newPrimary = createImageElement(newUrl, newPhoto);
+            const insertBeforeNode = track.children[firstSetLength - 1] || null;
+            if (insertBeforeNode) {
+                track.insertBefore(newPrimary, insertBeforeNode.nextSibling);
+            } else {
+                track.appendChild(newPrimary);
+            }
+
+            // 新しい写真を2つ目のセットの最後に追加
+            const newDuplicate = createImageElement(newUrl, newPhoto);
+            track.appendChild(newDuplicate);
+
+            // 画像の読み込みを待つ
+            const imageLoadPromises = [newPrimary, newDuplicate].map(img => {
+                if (img.complete) {
+                    return Promise.resolve();
+                }
+                return new Promise((resolve) => {
+                    img.addEventListener('load', resolve, { once: true });
+                    img.addEventListener('error', resolve, { once: true });
+                    setTimeout(resolve, 1000);
+                });
+            });
+
+            Promise.all(imageLoadPromises).then(() => {
+                requestAnimationFrame(() => {
+                    const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
+                    if (firstImageWidth === 0) {
+                        restartTrackAnimation(track, true);
+                        return;
+                    }
+                    
+                    const newFirstSetWidth = firstImageWidth * nextPhotos.length;
+                    track.dataset.firstSetWidth = newFirstSetWidth.toString();
+                    
+                    // 現在の位置を新しい幅に合わせて調整
+                    const adjustedTranslateX = (currentTranslateX * newFirstSetWidth) / firstSetWidth;
+                    
+                    // 現在の位置を保持したまま、JavaScriptでアニメーションを制御
+                    let animationStartTime = performance.now();
+                    let animationStartX = adjustedTranslateX;
+                    const targetX = adjustedTranslateX - newFirstSetWidth;
+                    
+                    function animateFrame() {
+                        if (!track.classList.contains('animate')) {
+                            return;
+                        }
+                        const elapsed = (performance.now() - animationStartTime) / 1000;
+                        const progress = Math.min(elapsed / FIXED_ANIMATION_DURATION, 1);
+                        const currentX = animationStartX + (targetX - animationStartX) * progress;
+                        track.style.transform = `translateX(${currentX}px)`;
+                        
+                        if (progress < 1) {
+                            requestAnimationFrame(animateFrame);
+                        } else {
+                            // 1サイクル完了したら、現在の位置から通常のCSSアニメーションに切り替え
+                            const finalX = currentX % (-newFirstSetWidth);
+                            track.style.transform = `translateX(${finalX}px)`;
+                            track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                            const remainingProgress = Math.abs(finalX) / newFirstSetWidth;
+                            const delay = -remainingProgress * FIXED_ANIMATION_DURATION;
+                            track.style.animationDelay = `${delay}s`;
+                            setTimeout(() => {
+                                if (track.classList.contains('animate')) {
+                                    track.style.animationDelay = '0s';
+                                }
+                            }, (1 - remainingProgress) * FIXED_ANIMATION_DURATION * 1000);
+                        }
+                    }
+                    
+                    track.classList.add('animate');
+                    track.style.animation = 'none';
+                    requestAnimationFrame(animateFrame);
+                });
+            });
+
+            return true;
+        }
+
         function tryIncrementalShift(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
             console.log('[DEBUG tryIncrementalShift] Start');
             if (!track || !Array.isArray(prevPhotos) || !Array.isArray(nextPhotos)) {
@@ -695,6 +867,28 @@
                         newRecentPhotoUrls
                     );
                     console.log('[DEBUG] tryIncrementalShift returned:', handled);
+                }
+                
+                // ケース3: 配列の長さが同じで、新しい写真が最後に追加されている場合（位置を保持して追加）
+                if (!handled && newRecentPhotos.length === prevRecentPhotos.length && hadAddition) {
+                    console.log('[DEBUG] Trying smoothAddNewPhotoAtEnd (case 3: same length, new photo at end)');
+                    // 新しい写真が最後に追加されているか確認
+                    const newPhotoAtEnd = newRecentPhotos[newRecentPhotos.length - 1];
+                    const prevPhotoAtEnd = prevRecentPhotos[prevRecentPhotos.length - 1];
+                    const isNewPhotoAtEnd = newPhotoAtEnd !== prevPhotoAtEnd;
+                    const prevPhotosMatch = prevRecentPhotos.slice(0, -1).every((photo, i) => photo === newRecentPhotos[i]);
+                    
+                    if (isNewPhotoAtEnd && prevPhotosMatch) {
+                        console.log('[DEBUG] New photo is at the end, using smoothAddNewPhotoAtEnd');
+                        handled = smoothAddNewPhotoAtEnd(
+                            middleTrack,
+                            prevRecentPhotos,
+                            prevRecentPhotoUrls,
+                            newRecentPhotos,
+                            newRecentPhotoUrls
+                        );
+                        console.log('[DEBUG] smoothAddNewPhotoAtEnd returned:', handled);
+                    }
                 }
                 
                 recentPhotos = newRecentPhotos;
