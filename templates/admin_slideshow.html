@@ -555,29 +555,37 @@
         }
 
         function tryIncrementalShift(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
+            console.log('[DEBUG tryIncrementalShift] Start');
             if (!track || !Array.isArray(prevPhotos) || !Array.isArray(nextPhotos)) {
+                console.log('[DEBUG tryIncrementalShift] Failed: track or arrays invalid');
                 return false;
             }
             if (track.dataset.loopEnabled !== '1') {
+                console.log('[DEBUG tryIncrementalShift] Failed: loop not enabled', track.dataset.loopEnabled);
                 return false;
             }
             if (prevPhotos.length === 0 || nextPhotos.length === 0) {
+                console.log('[DEBUG tryIncrementalShift] Failed: empty arrays', prevPhotos.length, nextPhotos.length);
                 return false;
             }
             if (prevPhotos.length !== nextPhotos.length) {
+                console.log('[DEBUG tryIncrementalShift] Failed: length mismatch', prevPhotos.length, nextPhotos.length);
                 return false;
             }
 
             const firstSetLength = Number(track.dataset.firstSetLength || 0);
             if (firstSetLength !== prevPhotos.length) {
+                console.log('[DEBUG tryIncrementalShift] Failed: firstSetLength mismatch', firstSetLength, prevPhotos.length);
                 return false;
             }
 
             for (let i = 0; i < nextPhotos.length - 1; i += 1) {
                 if (nextPhotos[i] !== prevPhotos[i + 1]) {
+                    console.log('[DEBUG tryIncrementalShift] Failed: photo order mismatch at index', i, 'next:', nextPhotos[i], 'prev[i+1]:', prevPhotos[i + 1]);
                     return false;
                 }
             }
+            console.log('[DEBUG tryIncrementalShift] All checks passed, proceeding with shift');
 
             const newPhoto = nextPhotos[nextPhotos.length - 1];
             const newUrl = nextPhotoUrls
@@ -655,10 +663,17 @@
                     prevLength: prevRecentPhotos.length,
                     newLength: newRecentPhotos.length,
                     hadAddition: hadAddition,
-                    condition: newRecentPhotos.length === prevRecentPhotos.length + 1 && hadAddition
+                    condition1: newRecentPhotos.length === prevRecentPhotos.length + 1 && hadAddition,
+                    condition2: newRecentPhotos.length === prevRecentPhotos.length && hadAddition,
+                    prevFirst: prevRecentPhotos[0],
+                    newFirst: newRecentPhotos[0],
+                    prevLast: prevRecentPhotos[prevRecentPhotos.length - 1],
+                    newLast: newRecentPhotos[newRecentPhotos.length - 1]
                 });
+                
+                // ケース1: 配列の長さが1つ増える場合（10枚→11枚）
                 if (newRecentPhotos.length === prevRecentPhotos.length + 1 && hadAddition) {
-                    console.log('[DEBUG] Calling smoothAddNewPhoto');
+                    console.log('[DEBUG] Calling smoothAddNewPhoto (case 1: length increased)');
                     handled = smoothAddNewPhoto(
                         middleTrack,
                         prevRecentPhotos,
@@ -668,8 +683,10 @@
                     );
                     console.log('[DEBUG] smoothAddNewPhoto returned:', handled);
                 }
-                if (!handled) {
-                    console.log('[DEBUG] Trying tryIncrementalShift');
+                
+                // ケース2: 配列の長さが同じで、内容がシフトしている場合（10枚→10枚、最初が削除され最後に追加）
+                if (!handled && newRecentPhotos.length === prevRecentPhotos.length && hadAddition) {
+                    console.log('[DEBUG] Trying tryIncrementalShift (case 2: same length, shifted)');
                     handled = tryIncrementalShift(
                         middleTrack,
                         prevRecentPhotos,
@@ -679,6 +696,7 @@
                     );
                     console.log('[DEBUG] tryIncrementalShift returned:', handled);
                 }
+                
                 recentPhotos = newRecentPhotos;
                 recentPhotoUrls = newRecentPhotoUrls;
                 if (!handled) {
