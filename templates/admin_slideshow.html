@@ -71,8 +71,13 @@
         }
 
         @keyframes scroll {
-            0% { transform: translateX(var(--start-x, 0)); }
-            100% { transform: translateX(calc(var(--start-x, 0) - 50%)); }
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        @keyframes scroll-from-position {
+            0% { transform: translateX(var(--start-x, 0px)); }
+            100% { transform: translateX(calc(var(--start-x, 0px) - 50%)); }
         }
         
         /* アニメーションを無効化するクラス（初期状態） */
@@ -486,7 +491,7 @@
                     // アニメーションを再開（現在の位置から開始）
                     track.style.animation = 'none';
                     void track.offsetWidth; // リフローを強制
-                    track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                    track.style.animation = `scroll-from-position ${FIXED_ANIMATION_DURATION}s linear infinite`;
                     track.style.animationDelay = '0s';
                     track.classList.add('animate');
                     
@@ -506,13 +511,22 @@
                                     // アニメーションを再開
                                     track.style.animation = 'none';
                                     void track.offsetWidth;
-                                    track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                                    track.style.animation = `scroll-from-position ${FIXED_ANIMATION_DURATION}s linear infinite`;
                                 } else {
                                     // フォールバック: 通常のアニメーションに戻す
                                     track.style.setProperty('--start-x', '0px');
+                                    track.style.animation = 'none';
+                                    void track.offsetWidth;
+                                    track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
                                 }
                             }
                         }, remainingTime * 1000);
+                    } else {
+                        // 既に1サイクル完了している場合は、通常のアニメーションに戻す
+                        track.style.setProperty('--start-x', '0px');
+                        track.style.animation = 'none';
+                        void track.offsetWidth;
+                        track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
                     }
                 });
             });
@@ -741,6 +755,8 @@
                 return;
             }
             track.classList.remove('init');
+            // 通常のアニメーション開始時は--start-xをリセット
+            track.style.setProperty('--start-x', '0px');
             track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
             track.classList.add('animate');
         }
