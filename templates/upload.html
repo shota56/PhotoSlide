@@ -200,7 +200,7 @@
         <h2 class="gallery-title">みんなの投稿</h2>
         <div class="photo-grid">
             {% if photos %}
-                {% for photo in photos|reverse %}
+                {% for photo in photos %}
                 <div class="photo-item">
                     <img src="{{ url_for('serve_upload', filename=photo) }}" alt="Uploaded photo">
                 </div>
