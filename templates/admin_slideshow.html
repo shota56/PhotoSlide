@@ -303,8 +303,15 @@
                 duplicateFragment.appendChild(createImageElement(url, photo));
             });
             middleTrack.appendChild(duplicateFragment);
-            restartTrackAnimation(middleTrack);
-
+            
+            requestAnimationFrame(() => {
+                if (middleTrack.children.length > 0) {
+                    const firstImageWidth = middleTrack.children[0].getBoundingClientRect().width;
+                    const firstSetWidth = firstImageWidth * firstSetLength;
+                    middleTrack.dataset.firstSetWidth = firstSetWidth.toString();
+                }
+                restartTrackAnimation(middleTrack);
+            });
         }
 
         function renderTopTrack() {
@@ -347,9 +354,114 @@
                 duplicateFragment.appendChild(createImageElement(url, photo));
             });
             topTrack.appendChild(duplicateFragment);
-            restartTrackAnimation(topTrack);
+            
+            requestAnimationFrame(() => {
+                if (topTrack && topTrack.children.length > 0) {
+                    const firstImageWidth = topTrack.children[0].getBoundingClientRect().width;
+                    const firstSetWidth = firstImageWidth * firstSetLength;
+                    topTrack.dataset.firstSetWidth = firstSetWidth.toString();
+                }
+                restartTrackAnimation(topTrack);
+                renderRecentTrack();
+            });
+        }
 
-            renderRecentTrack();
+        function getCurrentAnimationProgress(track) {
+            if (!track || !track.classList.contains('animate')) {
+                return 0;
+            }
+            const computedStyle = window.getComputedStyle(track);
+            const transform = computedStyle.transform;
+            if (!transform || transform === 'none') {
+                return 0;
+            }
+            const matrix = transform.match(/matrix\(([^)]+)\)/);
+            if (!matrix) {
+                return 0;
+            }
+            const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+            const translateX = values[4] || 0;
+            const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+            if (firstSetWidth === 0) {
+                return 0;
+            }
+            const progress = Math.abs(translateX) / firstSetWidth;
+            return progress % 1;
+        }
+
+        function smoothAddNewPhoto(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
+            if (!track || !Array.isArray(prevPhotos) || !Array.isArray(nextPhotos)) {
+                return false;
+            }
+            if (track.dataset.loopEnabled !== '1') {
+                return false;
+            }
+            if (prevPhotos.length === 0 || nextPhotos.length === 0) {
+                return false;
+            }
+            if (nextPhotos.length !== prevPhotos.length + 1) {
+                return false;
+            }
+            for (let i = 0; i < prevPhotos.length; i += 1) {
+                if (nextPhotos[i] !== prevPhotos[i]) {
+                    return false;
+                }
+            }
+            const newPhoto = nextPhotos[nextPhotos.length - 1];
+            const newUrl = nextPhotoUrls
+                ? nextPhotoUrls[nextPhotoUrls.length - 1]
+                : buildPhotoUrl(newPhoto);
+
+            const firstSetLength = Number(track.dataset.firstSetLength || 0);
+            if (firstSetLength !== prevPhotos.length) {
+                return false;
+            }
+
+            const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+            if (firstSetWidth === 0) {
+                const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
+                if (firstImageWidth === 0) {
+                    return false;
+                }
+                const calculatedWidth = firstImageWidth * firstSetLength;
+                track.dataset.firstSetWidth = calculatedWidth.toString();
+                return false;
+            }
+
+            const currentProgress = getCurrentAnimationProgress(track);
+            const currentTranslateX = -(currentProgress * firstSetWidth);
+
+            track.style.animationPlayState = 'paused';
+            track.style.transform = `translateX(${currentTranslateX}px)`;
+
+            const newPrimary = createImageElement(newUrl, newPhoto);
+            const duplicateIndex = firstSetLength;
+            const insertBeforeNode = track.children[duplicateIndex] || null;
+            track.insertBefore(newPrimary, insertBeforeNode);
+
+            const newDuplicate = createImageElement(newUrl, newPhoto);
+            track.appendChild(newDuplicate);
+
+            track.dataset.firstSetLength = nextPhotos.length;
+
+            requestAnimationFrame(() => {
+                const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
+                if (firstImageWidth === 0) {
+                    restartTrackAnimation(track, true);
+                    return;
+                }
+                const newFirstSetWidth = firstImageWidth * nextPhotos.length;
+                track.dataset.firstSetWidth = newFirstSetWidth.toString();
+                const adjustedProgress = (currentProgress * firstSetWidth) / newFirstSetWidth;
+                const adjustedTranslateX = -(adjustedProgress * newFirstSetWidth);
+                track.style.transform = `translateX(${adjustedTranslateX}px)`;
+                
+                track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                track.style.animationPlayState = 'running';
+                track.classList.add('animate');
+            });
+
+            return true;
         }
 
         function tryIncrementalShift(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
@@ -448,13 +560,25 @@
             const recentChanged = !arraysEqual(newRecentPhotos, recentPhotos) || !arraysEqual(newRecentPhotoUrls, recentPhotoUrls);
 
             if (recentChanged) {
-                const handled = tryIncrementalShift(
-                    middleTrack,
-                    prevRecentPhotos,
-                    prevRecentPhotoUrls,
-                    newRecentPhotos,
-                    newRecentPhotoUrls
-                );
+                let handled = false;
+                if (newRecentPhotos.length === prevRecentPhotos.length + 1 && hadAddition) {
+                    handled = smoothAddNewPhoto(
+                        middleTrack,
+                        prevRecentPhotos,
+                        prevRecentPhotoUrls,
+                        newRecentPhotos,
+                        newRecentPhotoUrls
+                    );
+                }
+                if (!handled) {
+                    handled = tryIncrementalShift(
+                        middleTrack,
+                        prevRecentPhotos,
+                        prevRecentPhotoUrls,
+                        newRecentPhotos,
+                        newRecentPhotoUrls
+                    );
+                }
                 recentPhotos = newRecentPhotos;
                 recentPhotoUrls = newRecentPhotoUrls;
                 if (!handled) {
@@ -475,13 +599,25 @@
             const topChanged = !arraysEqual(newTopPhotos, topPhotos) || !arraysEqual(newTopPhotoUrls, topPhotoUrls);
 
             if (topChanged) {
-                const handled = tryIncrementalShift(
-                    topTrack,
-                    prevTopPhotos,
-                    prevTopPhotoUrls,
-                    newTopPhotos,
-                    newTopPhotoUrls
-                );
+                let handled = false;
+                if (newTopPhotos.length === prevTopPhotos.length + 1 && hadAddition) {
+                    handled = smoothAddNewPhoto(
+                        topTrack,
+                        prevTopPhotos,
+                        prevTopPhotoUrls,
+                        newTopPhotos,
+                        newTopPhotoUrls
+                    );
+                }
+                if (!handled) {
+                    handled = tryIncrementalShift(
+                        topTrack,
+                        prevTopPhotos,
+                        prevTopPhotoUrls,
+                        newTopPhotos,
+                        newTopPhotoUrls
+                    );
+                }
                 topPhotos = newTopPhotos;
                 topPhotoUrls = newTopPhotoUrls;
                 if (!handled) {
@@ -553,7 +689,7 @@
             track.classList.add('animate');
         }
 
-        function restartTrackAnimation(track) {
+        function restartTrackAnimation(track, preservePosition = false) {
             if (!track) {
                 return;
             }
@@ -561,6 +697,16 @@
                 track.classList.remove('animate');
                 track.style.animation = 'none';
                 return;
+            }
+            if (preservePosition) {
+                const currentProgress = getCurrentAnimationProgress(track);
+                const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+                if (firstSetWidth > 0) {
+                    const currentTranslateX = -(currentProgress * firstSetWidth);
+                    track.style.transform = `translateX(${currentTranslateX}px)`;
+                }
+            } else {
+                track.style.transform = '';
             }
             track.classList.remove('animate');
             track.classList.add('init');
