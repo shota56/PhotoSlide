@@ -1,4 +1,4 @@
-# バイナリファイルを無視
+# バイナリファイル・メディアファイルを無視
 *.db
 *.sqlite
 *.sqlite3
@@ -9,12 +9,84 @@
 *.webp
 *.mp4
 *.mov
+*.avi
+*.mkv
+*.pdf
+*.zip
+*.tar
+*.gz
 
-# 仮想環境
+# アップロードされた画像ディレクトリ（大量の画像ファイルが含まれる可能性）
+static/uploads/
+static/uploads/**
+
+# 仮想環境（大量のPythonパッケージが含まれる）
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
 
-# キャッシュ
+# Pythonキャッシュ
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# ログファイル
+*.log
+*.log.*
+
+# OS固有ファイル
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE設定ファイル（通常は不要）
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Git関連（通常は自動的に無視されるが明示的に）
+.git/
+.gitignore
+
+# 環境変数ファイル
+.env
+.env.local
+.env.*.local
+
+# 一時ファイル
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# インスタンスフォルダ（Flask）
+instance/
+.webassets-cache
+
+# テストカバレッジ
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
 

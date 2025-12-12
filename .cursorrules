@@ -1,0 +1,22 @@
+# Cursor Rules for PhotoSlide Project
+
+## Project Focus
+This project is focused exclusively on the PhotoSlide Flask application.
+
+## Code Context Guidelines
+- When making changes, focus only on the relevant files for the task
+- Avoid loading entire file contents unless necessary
+- Prefer reading specific sections of files using line offsets
+- Use grep/search tools to find specific code patterns before reading full files
+
+## File Priorities
+- Core application files: app.py, templates/*.html
+- Configuration: requirements.txt, .gitignore
+- Data files: data/result_config.json (small, can be included)
+
+## Files to Ignore
+- All uploaded images in static/uploads/
+- Virtual environment (venv/)
+- Cache files (__pycache__/, *.pyc)
+- Log files (*.log)
+
