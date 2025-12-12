@@ -71,8 +71,8 @@
         }
 
         @keyframes scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+            0% { transform: translateX(var(--start-x, 0)); }
+            100% { transform: translateX(calc(var(--start-x, 0) - 50%)); }
         }
         
         /* アニメーションを無効化するクラス（初期状態） */
@@ -480,32 +480,40 @@
                     const adjustedProgress = (currentProgress * firstSetWidth) / newFirstSetWidth;
                     const adjustedTranslateX = -(adjustedProgress * newFirstSetWidth);
                     
-                    // 現在の位置を保持したままアニメーションを再開
                     // CSS変数を使用してアニメーションの開始位置を設定
                     track.style.setProperty('--start-x', `${adjustedTranslateX}px`);
-                    track.style.transform = `translateX(${adjustedTranslateX}px)`;
                     
                     // アニメーションを再開（現在の位置から開始）
+                    track.style.animation = 'none';
+                    void track.offsetWidth; // リフローを強制
                     track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
                     track.style.animationDelay = '0s';
                     track.classList.add('animate');
                     
-                    // アニメーションが開始されたら、transformをリセットしてCSSアニメーションに任せる
-                    // ただし、現在の位置を保持するために、アニメーションの開始位置を調整
-                    requestAnimationFrame(() => {
-                        // アニメーションの進行状況に基づいて、開始位置を調整
-                        const animationProgress = adjustedProgress * FIXED_ANIMATION_DURATION;
-                        if (animationProgress > 0) {
-                            // アニメーションの開始位置を調整するために、animation-delayを使用
-                            track.style.animationDelay = `-${animationProgress}s`;
-                            // アニメーションが1サイクル完了したら、delayをリセット
-                            setTimeout(() => {
-                                if (track.classList.contains('animate')) {
-                                    track.style.animationDelay = '0s';
+                    // アニメーションが1サイクル完了したら、--start-xをリセットして通常のアニメーションに戻す
+                    const remainingTime = (1 - adjustedProgress) * FIXED_ANIMATION_DURATION;
+                    if (remainingTime > 0) {
+                        setTimeout(() => {
+                            if (track.classList.contains('animate')) {
+                                // 現在の位置を取得
+                                const currentTransform = window.getComputedStyle(track).transform;
+                                const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                                if (matrix) {
+                                    const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                                    const currentX = values[4] || 0;
+                                    // 新しい開始位置を設定（現在の位置から）
+                                    track.style.setProperty('--start-x', `${currentX}px`);
+                                    // アニメーションを再開
+                                    track.style.animation = 'none';
+                                    void track.offsetWidth;
+                                    track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                                } else {
+                                    // フォールバック: 通常のアニメーションに戻す
+                                    track.style.setProperty('--start-x', '0px');
                                 }
-                            }, (FIXED_ANIMATION_DURATION - animationProgress) * 1000);
-                        }
-                    });
+                            }
+                        }, remainingTime * 1000);
+                    }
                 });
             });
 
