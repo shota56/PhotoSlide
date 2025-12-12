@@ -428,37 +428,85 @@
                 return false;
             }
 
+            // 現在のアニメーション進行状況を取得
             const currentProgress = getCurrentAnimationProgress(track);
             const currentTranslateX = -(currentProgress * firstSetWidth);
-
+            
+            // アニメーションを一時停止し、現在の位置を保持
             track.style.animationPlayState = 'paused';
             track.style.transform = `translateX(${currentTranslateX}px)`;
+            
+            // アニメーションを完全に停止（クラスを削除）
+            track.classList.remove('animate');
+            track.style.animation = 'none';
+            void track.offsetWidth; // リフローを強制
 
+            // 新しい写真を追加（最初のセットの最後に追加）
             const newPrimary = createImageElement(newUrl, newPhoto);
             const duplicateIndex = firstSetLength;
             const insertBeforeNode = track.children[duplicateIndex] || null;
             track.insertBefore(newPrimary, insertBeforeNode);
 
+            // 2つ目のセットの最後にも追加
             const newDuplicate = createImageElement(newUrl, newPhoto);
             track.appendChild(newDuplicate);
 
             track.dataset.firstSetLength = nextPhotos.length;
 
-            requestAnimationFrame(() => {
-                const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
-                if (firstImageWidth === 0) {
-                    restartTrackAnimation(track, true);
-                    return;
+            // 画像の読み込みを待ってからアニメーションを再開
+            const imageLoadPromises = [newPrimary, newDuplicate].map(img => {
+                if (img.complete) {
+                    return Promise.resolve();
                 }
-                const newFirstSetWidth = firstImageWidth * nextPhotos.length;
-                track.dataset.firstSetWidth = newFirstSetWidth.toString();
-                const adjustedProgress = (currentProgress * firstSetWidth) / newFirstSetWidth;
-                const adjustedTranslateX = -(adjustedProgress * newFirstSetWidth);
-                track.style.transform = `translateX(${adjustedTranslateX}px)`;
-                
-                track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
-                track.style.animationPlayState = 'running';
-                track.classList.add('animate');
+                return new Promise((resolve) => {
+                    img.addEventListener('load', resolve, { once: true });
+                    img.addEventListener('error', resolve, { once: true });
+                    setTimeout(resolve, 1000);
+                });
+            });
+
+            Promise.all(imageLoadPromises).then(() => {
+                requestAnimationFrame(() => {
+                    const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
+                    if (firstImageWidth === 0) {
+                        restartTrackAnimation(track, true);
+                        return;
+                    }
+                    
+                    const newFirstSetWidth = firstImageWidth * nextPhotos.length;
+                    track.dataset.firstSetWidth = newFirstSetWidth.toString();
+                    
+                    // 現在の位置を新しい幅に合わせて調整
+                    const adjustedProgress = (currentProgress * firstSetWidth) / newFirstSetWidth;
+                    const adjustedTranslateX = -(adjustedProgress * newFirstSetWidth);
+                    
+                    // 現在の位置を保持したままアニメーションを再開
+                    // CSS変数を使用してアニメーションの開始位置を設定
+                    track.style.setProperty('--start-x', `${adjustedTranslateX}px`);
+                    track.style.transform = `translateX(${adjustedTranslateX}px)`;
+                    
+                    // アニメーションを再開（現在の位置から開始）
+                    track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                    track.style.animationDelay = '0s';
+                    track.classList.add('animate');
+                    
+                    // アニメーションが開始されたら、transformをリセットしてCSSアニメーションに任せる
+                    // ただし、現在の位置を保持するために、アニメーションの開始位置を調整
+                    requestAnimationFrame(() => {
+                        // アニメーションの進行状況に基づいて、開始位置を調整
+                        const animationProgress = adjustedProgress * FIXED_ANIMATION_DURATION;
+                        if (animationProgress > 0) {
+                            // アニメーションの開始位置を調整するために、animation-delayを使用
+                            track.style.animationDelay = `-${animationProgress}s`;
+                            // アニメーションが1サイクル完了したら、delayをリセット
+                            setTimeout(() => {
+                                if (track.classList.contains('animate')) {
+                                    track.style.animationDelay = '0s';
+                                }
+                            }, (FIXED_ANIMATION_DURATION - animationProgress) * 1000);
+                        }
+                    });
+                });
             });
 
             return true;
