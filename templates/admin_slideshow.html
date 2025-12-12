@@ -49,7 +49,7 @@
         }
         
         .slide-track.animate {
-            animation: scroll 40s linear infinite;
+            /* アニメーションはJavaScriptで制御 */
         }
 
         .slide-track img {
@@ -131,6 +131,9 @@
         let topPhotoUrls = [];
         let recentPhotos = [];
         let recentPhotoUrls = [];
+        
+        // アニメーション制御用の変数
+        const animationLoops = new Map(); // track -> { startX, targetX, startTime, firstSetWidth, isRunning }
          try {
              const parsed = JSON.parse(configElement.textContent);
              currentPhotos = Array.isArray(parsed.photos) ? parsed.photos.slice() : [];
@@ -273,10 +276,44 @@
             return true;
         }
 
-        function renderRecentTrack() {
+        function renderRecentTrack(preservePosition = false) {
             if (!middleTrack) {
                 return;
             }
+            
+            // 位置を保持する場合、現在の位置を取得（DOMをクリアする前に）
+            let currentTranslateX = 0;
+            let oldFirstSetWidth = 0;
+            if (preservePosition) {
+                // まず、実際のtransform値から現在の位置を取得（最も正確）
+                const computedStyle = window.getComputedStyle(middleTrack);
+                const currentTransform = computedStyle.transform;
+                if (currentTransform && currentTransform !== 'none') {
+                    const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                    if (matrix) {
+                        const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                        currentTranslateX = values[4] || 0;
+                    }
+                }
+                oldFirstSetWidth = middleTrack.dataset.firstSetWidth ? parseFloat(middleTrack.dataset.firstSetWidth) : 0;
+                
+                // アニメーションループを停止
+                const loop = animationLoops.get(middleTrack);
+                if (loop && loop.isRunning) {
+                    loop.isRunning = false;
+                }
+                
+                console.log('[DEBUG renderRecentTrack] Preserving position from transform:', currentTranslateX, 'oldFirstSetWidth:', oldFirstSetWidth);
+                
+                // 位置が取得できなかった場合は、位置を保持しない
+                if (currentTranslateX === 0 && oldFirstSetWidth === 0) {
+                    console.log('[DEBUG renderRecentTrack] Could not get position, not preserving');
+                    preservePosition = false;
+                }
+            } else {
+                console.log('[DEBUG renderRecentTrack] Not preserving position (preservePosition = false)');
+            }
+            
             middleTrack.innerHTML = '';
             const firstSetLength = recentPhotos.length;
             const shouldLoop = firstSetLength >= 10;
@@ -304,14 +341,134 @@
             });
             middleTrack.appendChild(duplicateFragment);
             
-            requestAnimationFrame(() => {
-                if (middleTrack.children.length > 0) {
-                    const firstImageWidth = middleTrack.children[0].getBoundingClientRect().width;
-                    const firstSetWidth = firstImageWidth * firstSetLength;
-                    middleTrack.dataset.firstSetWidth = firstSetWidth.toString();
+            // 画像の読み込みを待つ
+            const imageLoadPromises = Array.from(middleTrack.querySelectorAll('img')).map(img => {
+                if (img.complete) {
+                    return Promise.resolve();
                 }
-                restartTrackAnimation(middleTrack);
+                return new Promise((resolve) => {
+                    img.addEventListener('load', resolve, { once: true });
+                    img.addEventListener('error', resolve, { once: true });
+                    setTimeout(resolve, 2000);
+                });
             });
+
+            Promise.all(imageLoadPromises).then(() => {
+                requestAnimationFrame(() => {
+                    if (middleTrack.children.length > 0) {
+                        const firstImageWidth = middleTrack.children[0].getBoundingClientRect().width;
+                        if (firstImageWidth === 0) {
+                            console.log('[DEBUG renderRecentTrack] Image width is 0, retrying...');
+                            setTimeout(() => {
+                                const retryWidth = middleTrack.children[0].getBoundingClientRect().width;
+                                if (retryWidth > 0) {
+                                    const firstSetWidth = retryWidth * firstSetLength;
+                                    middleTrack.dataset.firstSetWidth = firstSetWidth.toString();
+                                    handleAnimationStart(middleTrack, firstSetWidth, preservePosition, oldFirstSetWidth, currentTranslateX);
+                                } else {
+                                    restartTrackAnimation(middleTrack);
+                                }
+                            }, 100);
+                            return;
+                        }
+                        
+                        const firstSetWidth = firstImageWidth * firstSetLength;
+                        middleTrack.dataset.firstSetWidth = firstSetWidth.toString();
+                        handleAnimationStart(middleTrack, firstSetWidth, preservePosition, oldFirstSetWidth, currentTranslateX);
+                    } else {
+                        restartTrackAnimation(middleTrack);
+                    }
+                });
+            });
+        }
+        
+        function startJavaScriptAnimation(track, firstSetWidth, startX = 0) {
+            if (!track || firstSetWidth <= 0) {
+                console.log('[DEBUG startJavaScriptAnimation] Invalid parameters', { track: !!track, firstSetWidth });
+                return;
+            }
+            
+            // 既存のアニメーションループを停止
+            const existingLoop = animationLoops.get(track);
+            if (existingLoop && existingLoop.isRunning) {
+                existingLoop.isRunning = false;
+                console.log('[DEBUG startJavaScriptAnimation] Stopped existing loop');
+            }
+            
+            // 新しいアニメーションループを開始
+            const loop = {
+                startX: startX,
+                targetX: startX - firstSetWidth,
+                startTime: performance.now(),
+                firstSetWidth: firstSetWidth,
+                isRunning: true
+            };
+            animationLoops.set(track, loop);
+            
+            console.log('[DEBUG startJavaScriptAnimation] Starting animation', {
+                startX,
+                targetX: loop.targetX,
+                firstSetWidth,
+                trackId: track.id
+            });
+            
+            function animateFrame() {
+                const loop = animationLoops.get(track);
+                if (!loop || !loop.isRunning || !track.classList.contains('animate')) {
+                    if (!loop || !loop.isRunning) {
+                        console.log('[DEBUG animateFrame] Loop stopped', { hasLoop: !!loop, isRunning: loop?.isRunning });
+                    }
+                    return;
+                }
+                
+                const elapsed = (performance.now() - loop.startTime) / 1000;
+                const progress = elapsed / FIXED_ANIMATION_DURATION;
+                
+                if (progress < 1) {
+                    // 1サイクル未満の場合
+                    const currentX = loop.startX + (loop.targetX - loop.startX) * progress;
+                    track.style.transform = `translateX(${currentX}px)`;
+                    requestAnimationFrame(animateFrame);
+                } else {
+                    // 1サイクル完了したら、ループを継続
+                    const cycleCount = Math.floor(progress);
+                    const remainingProgress = progress - cycleCount;
+                    const currentX = loop.startX - (loop.firstSetWidth * cycleCount) - (loop.firstSetWidth * remainingProgress);
+                    track.style.transform = `translateX(${currentX}px)`;
+                    
+                    // 次のサイクルを開始
+                    loop.startX = currentX;
+                    loop.targetX = currentX - loop.firstSetWidth;
+                    loop.startTime = performance.now();
+                    requestAnimationFrame(animateFrame);
+                }
+            }
+            
+            track.classList.add('animate');
+            track.style.animation = 'none';
+            // 開始位置を設定（重要：これがないと位置がリセットされる）
+            track.style.transform = `translateX(${startX}px)`;
+            console.log('[DEBUG startJavaScriptAnimation] Set initial transform:', startX);
+            requestAnimationFrame(animateFrame);
+        }
+        
+        function handleAnimationStart(track, firstSetWidth, preservePosition, oldFirstSetWidth, currentTranslateX) {
+            if (preservePosition && oldFirstSetWidth > 0 && currentTranslateX !== 0 && firstSetWidth > 0) {
+                // 位置を保持する場合、現在の位置を調整
+                // 直接比率で調整（より正確で、ズレが少ない）
+                const adjustedTranslateX = (currentTranslateX * firstSetWidth) / oldFirstSetWidth;
+                console.log('[DEBUG handleAnimationStart] Preserving position:', adjustedTranslateX, 'from', currentTranslateX, 'oldWidth:', oldFirstSetWidth, 'newWidth:', firstSetWidth);
+                // 位置が0に近い場合は、位置を保持しない（初期化時など）
+                if (Math.abs(adjustedTranslateX) < 10) {
+                    console.log('[DEBUG handleAnimationStart] Position too close to 0, starting from 0');
+                    startJavaScriptAnimation(track, firstSetWidth, 0);
+                } else {
+                    startJavaScriptAnimation(track, firstSetWidth, adjustedTranslateX);
+                }
+            } else {
+                // 位置を保持しない場合、最初から開始
+                startJavaScriptAnimation(track, firstSetWidth, 0);
+            }
         }
 
         function renderTopTrack() {
@@ -327,7 +484,7 @@
             if (!topTrack) {
                 insertTopLaneSkeleton();
                 topTrack = document.getElementById('topTrack');
-                renderRecentTrack();
+                // renderRecentTrackは呼ばない（位置をリセットしない）
             }
 
             if (!topTrack) {
@@ -362,7 +519,7 @@
                     topTrack.dataset.firstSetWidth = firstSetWidth.toString();
                 }
                 restartTrackAnimation(topTrack);
-                renderRecentTrack();
+                // renderRecentTrackは呼ばない（位置をリセットしない）
             });
         }
 
@@ -576,6 +733,17 @@
             // 最初のN-1個の要素が一致し、最後の要素が新しい写真であることを確認
             const prevPhotosMatch = prevPhotos.slice(0, -1).every((photo, i) => photo === nextPhotos[i]);
             const newPhotoAtEnd = nextPhotos[nextPhotos.length - 1] !== prevPhotos[prevPhotos.length - 1];
+            
+            console.log('[DEBUG smoothAddNewPhotoAtEnd] Checking conditions:', {
+                prevPhotosMatch,
+                newPhotoAtEnd,
+                prevLast: prevPhotos[prevPhotos.length - 1],
+                nextLast: nextPhotos[nextPhotos.length - 1],
+                prevFirst: prevPhotos[0],
+                nextFirst: nextPhotos[0],
+                prevSlice: prevPhotos.slice(0, -1),
+                nextSlice: nextPhotos.slice(0, -1)
+            });
             
             if (!prevPhotosMatch || !newPhotoAtEnd) {
                 console.log('[DEBUG smoothAddNewPhotoAtEnd] Failed: not a simple end addition', {
@@ -828,6 +996,18 @@
                     : newRecentPhotos.map(buildPhotoUrl));
 
             const recentChanged = !arraysEqual(newRecentPhotos, recentPhotos) || !arraysEqual(newRecentPhotoUrls, recentPhotoUrls);
+            
+            // recentPhotosの内容が変わった場合、写真が追加された可能性がある
+            // 配列の内容が変わっているか確認（最初の要素や最後の要素が変わっている場合）
+            const arraysCompletelyEqual = arraysEqual(newRecentPhotos, prevRecentPhotos) && arraysEqual(newRecentPhotoUrls, prevRecentPhotoUrls);
+            const firstElementChanged = newRecentPhotos.length > 0 && prevRecentPhotos.length > 0 && newRecentPhotos[0] !== prevRecentPhotos[0];
+            const lastElementChanged = newRecentPhotos.length > 0 && prevRecentPhotos.length > 0 && newRecentPhotos[newRecentPhotos.length - 1] !== prevRecentPhotos[prevRecentPhotos.length - 1];
+            const hasNewPhotoInRecent = recentChanged && !arraysCompletelyEqual && (
+                hadAddition || 
+                firstElementChanged ||
+                lastElementChanged ||
+                (newRecentPhotos.length > 0 && !prevRecentPhotos.includes(newRecentPhotos[newRecentPhotos.length - 1]))
+            );
 
             if (recentChanged) {
                 let handled = false;
@@ -835,6 +1015,7 @@
                     prevLength: prevRecentPhotos.length,
                     newLength: newRecentPhotos.length,
                     hadAddition: hadAddition,
+                    hasNewPhotoInRecent: hasNewPhotoInRecent,
                     condition1: newRecentPhotos.length === prevRecentPhotos.length + 1 && hadAddition,
                     condition2: newRecentPhotos.length === prevRecentPhotos.length && hadAddition,
                     prevFirst: prevRecentPhotos[0],
@@ -894,8 +1075,23 @@
                 recentPhotos = newRecentPhotos;
                 recentPhotoUrls = newRecentPhotoUrls;
                 if (!handled) {
-                    console.log('[DEBUG] Falling back to renderRecentTrack - this will reset position!');
-                    renderRecentTrack();
+                    // 位置を保持しようとする（新しい写真が追加された可能性がある場合）
+                    // hasNewPhotoInRecentがtrueの場合、位置を保持（hadAdditionがfalseでも、recentPhotosの内容が変わっている場合は保持）
+                    const shouldPreserve = hasNewPhotoInRecent && (newRecentPhotos.length >= prevRecentPhotos.length);
+                    console.log('[DEBUG] Falling back to renderRecentTrack', {
+                        hadAddition,
+                        hasNewPhotoInRecent,
+                        firstElementChanged,
+                        lastElementChanged,
+                        shouldPreserve,
+                        prevLength: prevRecentPhotos.length,
+                        newLength: newRecentPhotos.length,
+                        prevFirst: prevRecentPhotos[0],
+                        newFirst: newRecentPhotos[0],
+                        prevLast: prevRecentPhotos[prevRecentPhotos.length - 1],
+                        newLast: newRecentPhotos[newRecentPhotos.length - 1]
+                    });
+                    renderRecentTrack(shouldPreserve);
                 }
             }
 
@@ -995,13 +1191,17 @@
             if (track.dataset.loopEnabled !== '1') {
                 track.classList.remove('animate');
                 track.style.animation = 'none';
+                const loop = animationLoops.get(track);
+                if (loop) {
+                    loop.isRunning = false;
+                }
                 return;
             }
             track.classList.remove('init');
-            // 通常のアニメーション開始時は--start-xをリセット
-            track.style.setProperty('--start-x', '0px');
-            track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
-            track.classList.add('animate');
+            const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+            if (firstSetWidth > 0) {
+                startJavaScriptAnimation(track, firstSetWidth, 0);
+            }
         }
 
         function restartTrackAnimation(track, preservePosition = false) {
@@ -1011,23 +1211,43 @@
             if (track.dataset.loopEnabled !== '1') {
                 track.classList.remove('animate');
                 track.style.animation = 'none';
+                const loop = animationLoops.get(track);
+                if (loop) {
+                    loop.isRunning = false;
+                }
                 return;
             }
-            if (preservePosition) {
-                const currentProgress = getCurrentAnimationProgress(track);
-                const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
-                if (firstSetWidth > 0) {
-                    const currentTranslateX = -(currentProgress * firstSetWidth);
-                    track.style.transform = `translateX(${currentTranslateX}px)`;
-                }
-            } else {
-                track.style.transform = '';
+            
+            const firstSetWidth = track.dataset.firstSetWidth ? parseFloat(track.dataset.firstSetWidth) : 0;
+            if (firstSetWidth <= 0) {
+                return;
             }
+            
+            let startX = 0;
+            if (preservePosition) {
+                const loop = animationLoops.get(track);
+                if (loop && loop.isRunning) {
+                    // 現在の位置を取得
+                    const computedStyle = window.getComputedStyle(track);
+                    const currentTransform = computedStyle.transform;
+                    if (currentTransform && currentTransform !== 'none') {
+                        const matrix = currentTransform.match(/matrix\(([^)]+)\)/);
+                        if (matrix) {
+                            const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                            startX = values[4] || 0;
+                        }
+                    }
+                } else {
+                    const currentProgress = getCurrentAnimationProgress(track);
+                    startX = -(currentProgress * firstSetWidth);
+                }
+            }
+            
             track.classList.remove('animate');
             track.classList.add('init');
             track.style.animation = 'none';
             void track.offsetWidth;
-            startAnimation(track);
+            startJavaScriptAnimation(track, firstSetWidth, startX);
         }
         
         window.addEventListener('load', function() {
