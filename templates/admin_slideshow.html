@@ -341,41 +341,79 @@
             });
             middleTrack.appendChild(duplicateFragment);
             
-            // 画像の読み込みを待つ
-            const imageLoadPromises = Array.from(middleTrack.querySelectorAll('img')).map(img => {
-                if (img.complete) {
-                    return Promise.resolve();
+            // 画像の読み込みを待つ（エラー時も処理を続行）
+            const imageLoadPromises = Array.from(middleTrack.querySelectorAll('img')).map((img, index) => {
+                if (img.complete && img.naturalWidth > 0) {
+                    return Promise.resolve(true);
                 }
                 return new Promise((resolve) => {
-                    img.addEventListener('load', resolve, { once: true });
-                    img.addEventListener('error', resolve, { once: true });
-                    setTimeout(resolve, 2000);
+                    let resolved = false;
+                    const resolveOnce = (success) => {
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(success);
+                        }
+                    };
+                    img.addEventListener('load', () => resolveOnce(true), { once: true });
+                    img.addEventListener('error', () => {
+                        console.warn('[DEBUG renderRecentTrack] Image load error:', img.src);
+                        resolveOnce(false);
+                    }, { once: true });
+                    // タイムアウトを5秒に延長
+                    setTimeout(() => {
+                        if (!resolved) {
+                            console.warn('[DEBUG renderRecentTrack] Image load timeout:', img.src);
+                            resolveOnce(false);
+                        }
+                    }, 5000);
                 });
             });
 
-            Promise.all(imageLoadPromises).then(() => {
+            Promise.all(imageLoadPromises).then((results) => {
+                const successCount = results.filter(r => r === true).length;
+                const totalCount = results.length;
+                console.log('[DEBUG renderRecentTrack] Image load results:', { successCount, totalCount });
+                
+                // 少なくとも1つの画像が読み込まれていることを確認
+                if (totalCount === 0) {
+                    console.error('[DEBUG renderRecentTrack] No images to load');
+                    return;
+                }
+                
                 requestAnimationFrame(() => {
                     if (middleTrack.children.length > 0) {
-                        const firstImageWidth = middleTrack.children[0].getBoundingClientRect().width;
-                        if (firstImageWidth === 0) {
-                            console.log('[DEBUG renderRecentTrack] Image width is 0, retrying...');
-                            setTimeout(() => {
-                                const retryWidth = middleTrack.children[0].getBoundingClientRect().width;
-                                if (retryWidth > 0) {
-                                    const firstSetWidth = retryWidth * firstSetLength;
+                        // 読み込まれた画像の幅を取得（エラー画像はスキップ）
+                        let firstImageWidth = 0;
+                        let retryCount = 0;
+                        const maxRetries = 10;
+                        
+                        const tryGetWidth = () => {
+                            const firstImg = middleTrack.children[0];
+                            if (firstImg && firstImg.tagName === 'IMG') {
+                                firstImageWidth = firstImg.getBoundingClientRect().width;
+                                // 画像が読み込まれているか確認
+                                if (firstImg.complete && firstImg.naturalWidth > 0 && firstImageWidth > 0) {
+                                    const firstSetWidth = firstImageWidth * firstSetLength;
                                     middleTrack.dataset.firstSetWidth = firstSetWidth.toString();
                                     handleAnimationStart(middleTrack, firstSetWidth, preservePosition, oldFirstSetWidth, currentTranslateX);
-                                } else {
-                                    restartTrackAnimation(middleTrack);
+                                    return;
                                 }
-                            }, 100);
-                            return;
-                        }
+                            }
+                            
+                            // リトライ
+                            retryCount++;
+                            if (retryCount < maxRetries) {
+                                setTimeout(tryGetWidth, 100);
+                            } else {
+                                console.error('[DEBUG renderRecentTrack] Failed to get image width after retries');
+                                // フォールバック: アニメーションを再開
+                                restartTrackAnimation(middleTrack);
+                            }
+                        };
                         
-                        const firstSetWidth = firstImageWidth * firstSetLength;
-                        middleTrack.dataset.firstSetWidth = firstSetWidth.toString();
-                        handleAnimationStart(middleTrack, firstSetWidth, preservePosition, oldFirstSetWidth, currentTranslateX);
+                        tryGetWidth();
                     } else {
+                        console.error('[DEBUG renderRecentTrack] No children in track');
                         restartTrackAnimation(middleTrack);
                     }
                 });
@@ -642,14 +680,82 @@
             });
             topTrack.appendChild(duplicateFragment);
             
-            requestAnimationFrame(() => {
-                if (topTrack && topTrack.children.length > 0) {
-                    const firstImageWidth = topTrack.children[0].getBoundingClientRect().width;
-                    const firstSetWidth = firstImageWidth * firstSetLength;
-                    topTrack.dataset.firstSetWidth = firstSetWidth.toString();
+            // 画像の読み込みを待つ（エラー時も処理を続行）
+            const imageLoadPromises = Array.from(topTrack.querySelectorAll('img')).map((img, index) => {
+                if (img.complete && img.naturalWidth > 0) {
+                    return Promise.resolve(true);
                 }
-                restartTrackAnimation(topTrack);
-                // renderRecentTrackは呼ばない（位置をリセットしない）
+                return new Promise((resolve) => {
+                    let resolved = false;
+                    const resolveOnce = (success) => {
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(success);
+                        }
+                    };
+                    img.addEventListener('load', () => resolveOnce(true), { once: true });
+                    img.addEventListener('error', () => {
+                        console.warn('[DEBUG renderTopTrack] Image load error:', img.src);
+                        resolveOnce(false);
+                    }, { once: true });
+                    // タイムアウトを5秒に延長
+                    setTimeout(() => {
+                        if (!resolved) {
+                            console.warn('[DEBUG renderTopTrack] Image load timeout:', img.src);
+                            resolveOnce(false);
+                        }
+                    }, 5000);
+                });
+            });
+
+            Promise.all(imageLoadPromises).then((results) => {
+                const successCount = results.filter(r => r === true).length;
+                const totalCount = results.length;
+                console.log('[DEBUG renderTopTrack] Image load results:', { successCount, totalCount });
+                
+                // 少なくとも1つの画像が読み込まれていることを確認
+                if (totalCount === 0) {
+                    console.error('[DEBUG renderTopTrack] No images to load');
+                    return;
+                }
+                
+                requestAnimationFrame(() => {
+                    if (topTrack && topTrack.children.length > 0) {
+                        // 読み込まれた画像の幅を取得（エラー画像はスキップ）
+                        let firstImageWidth = 0;
+                        let retryCount = 0;
+                        const maxRetries = 10;
+                        
+                        const tryGetWidth = () => {
+                            const firstImg = topTrack.children[0];
+                            if (firstImg && firstImg.tagName === 'IMG') {
+                                firstImageWidth = firstImg.getBoundingClientRect().width;
+                                // 画像が読み込まれているか確認
+                                if (firstImg.complete && firstImg.naturalWidth > 0 && firstImageWidth > 0) {
+                                    const firstSetWidth = firstImageWidth * firstSetLength;
+                                    topTrack.dataset.firstSetWidth = firstSetWidth.toString();
+                                    restartTrackAnimation(topTrack);
+                                    return;
+                                }
+                            }
+                            
+                            // リトライ
+                            retryCount++;
+                            if (retryCount < maxRetries) {
+                                setTimeout(tryGetWidth, 100);
+                            } else {
+                                console.error('[DEBUG renderTopTrack] Failed to get image width after retries');
+                                // フォールバック: アニメーションを再開
+                                restartTrackAnimation(topTrack);
+                            }
+                        };
+                        
+                        tryGetWidth();
+                    } else {
+                        console.error('[DEBUG renderTopTrack] No children in track');
+                        restartTrackAnimation(topTrack);
+                    }
+                });
             });
         }
 

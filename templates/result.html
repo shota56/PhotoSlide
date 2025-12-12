@@ -217,6 +217,49 @@
         }
         
         
+        /* タップエリアの視覚的ガイド */
+        .tap-guide {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .tap-guide.left {
+            left: 0;
+            background: linear-gradient(to right, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+        }
+        
+        .tap-guide.right {
+            right: 0;
+            background: linear-gradient(to left, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+        }
+        
+        .tap-guide.show {
+            opacity: 1;
+        }
+        
+        .tap-guide-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 3rem;
+            color: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+        }
+        
+        .tap-guide.left .tap-guide-icon {
+            left: 2rem;
+        }
+        
+        .tap-guide.right .tap-guide-icon {
+            right: 2rem;
+        }
+        
         @media (max-width: 768px) {
             .slide {
                 padding: 2rem 1rem;
@@ -229,10 +272,30 @@
             .category-slide-content {
                 gap: 2.5rem;
             }
+            
+            .tap-guide-icon {
+                font-size: 2rem;
+            }
+            
+            .tap-guide.left .tap-guide-icon {
+                left: 1rem;
+            }
+            
+            .tap-guide.right .tap-guide-icon {
+                right: 1rem;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- タップガイド -->
+    <div class="tap-guide left" id="leftGuide">
+        <div class="tap-guide-icon">←</div>
+    </div>
+    <div class="tap-guide right" id="rightGuide">
+        <div class="tap-guide-icon">→</div>
+    </div>
+    
     <div id="slides">
         <!-- タイトルスライド -->
         <section class="slide active" data-index="0">
@@ -346,16 +409,70 @@
             }
         }
 
-        function handleInteraction(event) {
-            const clientX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : event.changedTouches[0].clientX);
+        // タップガイドの要素
+        const leftGuide = document.getElementById('leftGuide');
+        const rightGuide = document.getElementById('rightGuide');
+        let guideTimeout = null;
+
+        // タップガイドを表示
+        function showTapGuide(x) {
             const screenWidth = window.innerWidth;
             
+            // 既存のタイマーをクリア
+            if (guideTimeout) {
+                clearTimeout(guideTimeout);
+            }
+            
+            if (x > screenWidth / 2) {
+                // 右側をタップ
+                rightGuide.classList.add('show');
+                leftGuide.classList.remove('show');
+            } else {
+                // 左側をタップ
+                leftGuide.classList.add('show');
+                rightGuide.classList.remove('show');
+            }
+            
+            // 0.5秒後に非表示
+            guideTimeout = setTimeout(() => {
+                leftGuide.classList.remove('show');
+                rightGuide.classList.remove('show');
+            }, 500);
+        }
+
+        // Chrome Remote Desktop対応: シンプルな実装
+        function handleClick(event) {
+            const clientX = event.clientX;
+            const screenWidth = window.innerWidth;
+            
+            // タップガイドを表示
+            showTapGuide(clientX);
+            
+            // 画面の左右で判定
             if (clientX > screenWidth / 2) {
                 // 右側をクリック/タップ → 次へ
                 goNext();
             } else {
                 // 左側をクリック/タップ → 戻る
                 goPrev();
+            }
+        }
+        
+        // マウス移動時にガイドを表示（カーソルが見える場合）
+        function handleMouseMove(event) {
+            const clientX = event.clientX;
+            const screenWidth = window.innerWidth;
+            
+            // 画面の端に近い場合のみガイドを表示
+            if (clientX < screenWidth * 0.2) {
+                leftGuide.classList.add('show');
+                rightGuide.classList.remove('show');
+            } else if (clientX > screenWidth * 0.8) {
+                rightGuide.classList.add('show');
+                leftGuide.classList.remove('show');
+            } else {
+                leftGuide.classList.remove('show');
+                rightGuide.classList.remove('show');
             }
         }
 
@@ -372,8 +489,12 @@
             }
         });
 
-        document.addEventListener('click', handleInteraction);
-        document.addEventListener('touchend', handleInteraction);
+        // Chrome Remote Desktop対応: clickイベントで処理
+        // Chrome Remote Desktopではタッチがクリックに変換される
+        document.addEventListener('click', handleClick);
+        
+        // マウス移動時にガイドを表示（カーソルが見える場合）
+        document.addEventListener('mousemove', handleMouseMove);
         
         // 初期状態の設定
         showSlide(0);
