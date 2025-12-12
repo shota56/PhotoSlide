@@ -390,20 +390,26 @@
         }
 
         function smoothAddNewPhoto(track, prevPhotos, prevPhotoUrls, nextPhotos, nextPhotoUrls) {
+            console.log('[DEBUG smoothAddNewPhoto] Start');
             if (!track || !Array.isArray(prevPhotos) || !Array.isArray(nextPhotos)) {
+                console.log('[DEBUG smoothAddNewPhoto] Failed: track or arrays invalid');
                 return false;
             }
             if (track.dataset.loopEnabled !== '1') {
+                console.log('[DEBUG smoothAddNewPhoto] Failed: loop not enabled', track.dataset.loopEnabled);
                 return false;
             }
             if (prevPhotos.length === 0 || nextPhotos.length === 0) {
+                console.log('[DEBUG smoothAddNewPhoto] Failed: empty arrays', prevPhotos.length, nextPhotos.length);
                 return false;
             }
             if (nextPhotos.length !== prevPhotos.length + 1) {
+                console.log('[DEBUG smoothAddNewPhoto] Failed: length mismatch', prevPhotos.length, nextPhotos.length);
                 return false;
             }
             for (let i = 0; i < prevPhotos.length; i += 1) {
                 if (nextPhotos[i] !== prevPhotos[i]) {
+                    console.log('[DEBUG smoothAddNewPhoto] Failed: photo order changed at index', i, prevPhotos[i], nextPhotos[i]);
                     return false;
                 }
             }
@@ -414,6 +420,7 @@
 
             const firstSetLength = Number(track.dataset.firstSetLength || 0);
             if (firstSetLength !== prevPhotos.length) {
+                console.log('[DEBUG smoothAddNewPhoto] Failed: firstSetLength mismatch', firstSetLength, prevPhotos.length);
                 return false;
             }
 
@@ -421,12 +428,16 @@
             if (firstSetWidth === 0) {
                 const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
                 if (firstImageWidth === 0) {
+                    console.log('[DEBUG smoothAddNewPhoto] Failed: cannot get image width');
                     return false;
                 }
                 const calculatedWidth = firstImageWidth * firstSetLength;
                 track.dataset.firstSetWidth = calculatedWidth.toString();
+                console.log('[DEBUG smoothAddNewPhoto] Calculated width, returning false to retry');
                 return false;
             }
+            
+            console.log('[DEBUG smoothAddNewPhoto] All checks passed, proceeding with photo addition');
 
             // 現在のアニメーション進行状況を取得
             // アニメーションを一時停止してから位置を取得
@@ -447,7 +458,10 @@
             if (currentTranslateX === 0 && track.classList.contains('animate')) {
                 const currentProgress = getCurrentAnimationProgress(track);
                 currentTranslateX = -(currentProgress * firstSetWidth);
+                console.log('[DEBUG smoothAddNewPhoto] Calculated position from progress:', currentProgress, currentTranslateX);
             }
+            
+            console.log('[DEBUG smoothAddNewPhoto] Current position:', currentTranslateX, 'firstSetWidth:', firstSetWidth);
             
             // アニメーションを完全に停止（クラスを削除）
             track.classList.remove('animate');
@@ -637,7 +651,14 @@
 
             if (recentChanged) {
                 let handled = false;
+                console.log('[DEBUG] recentChanged:', {
+                    prevLength: prevRecentPhotos.length,
+                    newLength: newRecentPhotos.length,
+                    hadAddition: hadAddition,
+                    condition: newRecentPhotos.length === prevRecentPhotos.length + 1 && hadAddition
+                });
                 if (newRecentPhotos.length === prevRecentPhotos.length + 1 && hadAddition) {
+                    console.log('[DEBUG] Calling smoothAddNewPhoto');
                     handled = smoothAddNewPhoto(
                         middleTrack,
                         prevRecentPhotos,
@@ -645,8 +666,10 @@
                         newRecentPhotos,
                         newRecentPhotoUrls
                     );
+                    console.log('[DEBUG] smoothAddNewPhoto returned:', handled);
                 }
                 if (!handled) {
+                    console.log('[DEBUG] Trying tryIncrementalShift');
                     handled = tryIncrementalShift(
                         middleTrack,
                         prevRecentPhotos,
@@ -654,10 +677,12 @@
                         newRecentPhotos,
                         newRecentPhotoUrls
                     );
+                    console.log('[DEBUG] tryIncrementalShift returned:', handled);
                 }
                 recentPhotos = newRecentPhotos;
                 recentPhotoUrls = newRecentPhotoUrls;
                 if (!handled) {
+                    console.log('[DEBUG] Falling back to renderRecentTrack - this will reset position!');
                     renderRecentTrack();
                 }
             }
