@@ -242,9 +242,15 @@
         let initialConfig = { categories: [], order: [] };
         if (configElement && configElement.textContent) {
             try {
-                initialConfig = JSON.parse(configElement.textContent);
+                const configText = configElement.textContent.trim();
+                if (configText) {
+                    initialConfig = JSON.parse(configText);
+                }
             } catch (error) {
-                console.warn('Failed to parse result config:', error);
+                console.error('Failed to parse result config:', error);
+                console.error('Config text:', configElement.textContent);
+                // デフォルト値を使用
+                initialConfig = { categories: [], order: [] };
             }
         }
 
