@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, redirect, url_for, jsonify, s
 from werkzeug.utils import secure_filename
 from functools import wraps
 from datetime import datetime
+from PIL import Image
 import os
 import json
 import uuid
@@ -117,6 +118,48 @@ def get_photo_details(sort_by: str = 'name'):
         })
     return details
 
+def resize_image(image_path, max_width=1920, max_height=1920, quality=85):
+    """
+    画像をリサイズして保存
+    max_width, max_height: 最大サイズ（px）
+    quality: JPEG品質（1-100、デフォルト85）
+    """
+    try:
+        with Image.open(image_path) as img:
+            # 画像をRGBに変換（RGBAやPモードなどに対応）
+            if img.mode in ('RGBA', 'LA', 'P'):
+                # 透明部分がある場合は白背景に変換
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                if img.mode == 'P':
+                    img = img.convert('RGBA')
+                if img.mode in ('RGBA', 'LA'):
+                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                img = background
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # リサイズが必要かチェック
+            width, height = img.size
+            if width <= max_width and height <= max_height:
+                # リサイズ不要の場合はそのまま保存（最適化のみ）
+                img.save(image_path, format='JPEG', quality=quality, optimize=True)
+                return True
+            
+            # アスペクト比を保ちながらリサイズ
+            ratio = min(max_width / width, max_height / height)
+            new_width = int(width * ratio)
+            new_height = int(height * ratio)
+            
+            # 高品質なリサイズ（LANCZOS）
+            img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # JPEG形式で保存（品質と最適化を適用）
+            img_resized.save(image_path, format='JPEG', quality=quality, optimize=True)
+            return True
+    except Exception as e:
+        print(f"Error resizing image: {e}")
+        return False
+
 @app.route('/')
 def index():
     photos = get_photos(sort_by='upload')
@@ -131,10 +174,30 @@ def upload_photo():
     
     if photo.filename == '':
         return jsonify({'success': False, 'error': 'ファイルが選択されていません'}), 400
+    
+    # ファイルサイズチェック（10MB制限）
+    photo.seek(0, os.SEEK_END)
+    file_size = photo.tell()
+    photo.seek(0)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    if file_size > MAX_FILE_SIZE:
+        return jsonify({'success': False, 'error': 'ファイルサイズが大きすぎます（最大10MB）'}), 400
         
     filename = secure_filename(photo.filename)
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    # 一時的に保存
     photo.save(filepath)
+    
+    # 画像をリサイズ（最大1920px、品質85%）
+    resize_success = resize_image(filepath, max_width=1920, max_height=1920, quality=85)
+    if not resize_success:
+        # リサイズに失敗した場合は元のファイルを削除
+        try:
+            os.remove(filepath)
+        except:
+            pass
+        return jsonify({'success': False, 'error': '画像の処理に失敗しました'}), 400
     
     # 写真のURLを生成
     photo_url = url_for('serve_upload', filename=filename)
