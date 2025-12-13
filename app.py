@@ -151,7 +151,13 @@ def resize_image(image_path, max_width=1920, max_height=1920, quality=85):
             new_height = int(height * ratio)
             
             # 高品質なリサイズ（LANCZOS）
-            img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Image.Resampling.LANCZOS は Pillow 10.0.0+ で利用可能
+            # 後方互換性のため、try-except でフォールバック
+            try:
+                resampling = Image.Resampling.LANCZOS
+            except AttributeError:
+                resampling = Image.LANCZOS
+            img_resized = img.resize((new_width, new_height), resampling)
             
             # JPEG形式で保存（品質と最適化を適用）
             img_resized.save(image_path, format='JPEG', quality=quality, optimize=True)
