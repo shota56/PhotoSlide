@@ -874,73 +874,109 @@
 
             track.dataset.firstSetLength = nextPhotos.length;
 
-            // 画像の読み込みを待ってからアニメーションを再開
-            const imageLoadPromises = [newPrimary, newDuplicate].map(img => {
-                if (img.complete) {
-                    return Promise.resolve();
+            // 画像の読み込みを待ってからアニメーションを再開（エラー時も処理を続行）
+            const imageLoadPromises = [newPrimary, newDuplicate].map((img, index) => {
+                if (img.complete && img.naturalWidth > 0) {
+                    return Promise.resolve(true);
                 }
                 return new Promise((resolve) => {
-                    img.addEventListener('load', resolve, { once: true });
-                    img.addEventListener('error', resolve, { once: true });
-                    setTimeout(resolve, 1000);
+                    let resolved = false;
+                    const resolveOnce = (success) => {
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(success);
+                        }
+                    };
+                    img.addEventListener('load', () => resolveOnce(true), { once: true });
+                    img.addEventListener('error', () => {
+                        console.warn('[DEBUG smoothAddNewPhoto] Image load error:', img.src);
+                        resolveOnce(false);
+                    }, { once: true });
+                    // タイムアウトを5秒に延長
+                    setTimeout(() => {
+                        if (!resolved) {
+                            console.warn('[DEBUG smoothAddNewPhoto] Image load timeout:', img.src);
+                            resolveOnce(false);
+                        }
+                    }, 5000);
                 });
             });
 
-            Promise.all(imageLoadPromises).then(() => {
+            Promise.all(imageLoadPromises).then((results) => {
+                const successCount = results.filter(r => r === true).length;
+                const totalCount = results.length;
+                console.log('[DEBUG smoothAddNewPhoto] Image load results:', { successCount, totalCount });
+                
                 requestAnimationFrame(() => {
-                    const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
-                    if (firstImageWidth === 0) {
-                        restartTrackAnimation(track, true);
-                        return;
-                    }
+                    // 読み込まれた画像の幅を取得（エラー画像はスキップ）
+                    let firstImageWidth = 0;
+                    let retryCount = 0;
+                    const maxRetries = 10;
                     
-                    const newFirstSetWidth = firstImageWidth * nextPhotos.length;
-                    track.dataset.firstSetWidth = newFirstSetWidth.toString();
-                    
-                    // 現在の位置を新しい幅に合わせて調整
-                    // currentTranslateXは既にピクセル値なので、新しい幅に対する比率を計算
-                    const adjustedTranslateX = (currentTranslateX * newFirstSetWidth) / firstSetWidth;
-                    
-                    // 現在の位置を保持したまま、JavaScriptでアニメーションを制御
-                    let animationStartTime = performance.now();
-                    let animationStartX = adjustedTranslateX;
-                    const targetX = adjustedTranslateX - newFirstSetWidth; // 1サイクル分進める
-                    
-                    // アニメーション関数
-                    function animateFrame() {
-                        if (!track.classList.contains('animate')) {
-                            return;
-                        }
-                        const elapsed = (performance.now() - animationStartTime) / 1000;
-                        const progress = Math.min(elapsed / FIXED_ANIMATION_DURATION, 1);
-                        const currentX = animationStartX + (targetX - animationStartX) * progress;
-                        track.style.transform = `translateX(${currentX}px)`;
-                        
-                        if (progress < 1) {
-                            requestAnimationFrame(animateFrame);
-                        } else {
-                            // 1サイクル完了したら、現在の位置から通常のCSSアニメーションに切り替え
-                            // ただし、位置を保持するために、アニメーションの開始位置を調整
-                            const finalX = currentX % (-newFirstSetWidth);
-                            track.style.transform = `translateX(${finalX}px)`;
-                            track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
-                            // 現在の位置から開始するために、animation-delayを使用
-                            const remainingProgress = Math.abs(finalX) / newFirstSetWidth;
-                            const delay = -remainingProgress * FIXED_ANIMATION_DURATION;
-                            track.style.animationDelay = `${delay}s`;
-                            // 1サイクル後にdelayをリセット
-                            setTimeout(() => {
-                                if (track.classList.contains('animate')) {
-                                    track.style.animationDelay = '0s';
+                    const tryGetWidth = () => {
+                        const firstImg = track.children[0];
+                        if (firstImg && firstImg.tagName === 'IMG') {
+                            firstImageWidth = firstImg.getBoundingClientRect().width;
+                            // 画像が読み込まれているか確認
+                            if (firstImg.complete && firstImg.naturalWidth > 0 && firstImageWidth > 0) {
+                                const newFirstSetWidth = firstImageWidth * nextPhotos.length;
+                                track.dataset.firstSetWidth = newFirstSetWidth.toString();
+                                
+                                // 現在の位置を新しい幅に合わせて調整
+                                const adjustedTranslateX = (currentTranslateX * newFirstSetWidth) / firstSetWidth;
+                                
+                                // 現在の位置を保持したまま、JavaScriptでアニメーションを制御
+                                let animationStartTime = performance.now();
+                                let animationStartX = adjustedTranslateX;
+                                const targetX = adjustedTranslateX - newFirstSetWidth; // 1サイクル分進める
+                                
+                                // アニメーション関数
+                                function animateFrame() {
+                                    if (!track.classList.contains('animate')) {
+                                        return;
+                                    }
+                                    const elapsed = (performance.now() - animationStartTime) / 1000;
+                                    const progress = Math.min(elapsed / FIXED_ANIMATION_DURATION, 1);
+                                    const currentX = animationStartX + (targetX - animationStartX) * progress;
+                                    track.style.transform = `translateX(${currentX}px)`;
+                                    
+                                    if (progress < 1) {
+                                        requestAnimationFrame(animateFrame);
+                                    } else {
+                                        // 1サイクル完了したら、現在の位置から通常のCSSアニメーションに切り替え
+                                        const finalX = currentX % (-newFirstSetWidth);
+                                        track.style.transform = `translateX(${finalX}px)`;
+                                        track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                                        const remainingProgress = Math.abs(finalX) / newFirstSetWidth;
+                                        const delay = -remainingProgress * FIXED_ANIMATION_DURATION;
+                                        track.style.animationDelay = `${delay}s`;
+                                        setTimeout(() => {
+                                            if (track.classList.contains('animate')) {
+                                                track.style.animationDelay = '0s';
+                                            }
+                                        }, (1 - remainingProgress) * FIXED_ANIMATION_DURATION * 1000);
+                                    }
                                 }
-                            }, (1 - remainingProgress) * FIXED_ANIMATION_DURATION * 1000);
+                                
+                                track.classList.add('animate');
+                                track.style.animation = 'none';
+                                requestAnimationFrame(animateFrame);
+                                return;
+                            }
                         }
-                    }
+                        
+                        // リトライ
+                        retryCount++;
+                        if (retryCount < maxRetries) {
+                            setTimeout(tryGetWidth, 100);
+                        } else {
+                            console.error('[DEBUG smoothAddNewPhoto] Failed to get image width after retries');
+                            // フォールバック: アニメーションを再開
+                            restartTrackAnimation(track, true);
+                        }
+                    };
                     
-                    // アニメーションを開始
-                    track.classList.add('animate');
-                    track.style.animation = 'none';
-                    requestAnimationFrame(animateFrame);
+                    tryGetWidth();
                 });
             });
 
@@ -1063,67 +1099,108 @@
             const newDuplicate = createImageElement(newUrl, newPhoto);
             track.appendChild(newDuplicate);
 
-            // 画像の読み込みを待つ
-            const imageLoadPromises = [newPrimary, newDuplicate].map(img => {
-                if (img.complete) {
-                    return Promise.resolve();
+            // 画像の読み込みを待つ（エラー時も処理を続行）
+            const imageLoadPromises = [newPrimary, newDuplicate].map((img, index) => {
+                if (img.complete && img.naturalWidth > 0) {
+                    return Promise.resolve(true);
                 }
                 return new Promise((resolve) => {
-                    img.addEventListener('load', resolve, { once: true });
-                    img.addEventListener('error', resolve, { once: true });
-                    setTimeout(resolve, 1000);
+                    let resolved = false;
+                    const resolveOnce = (success) => {
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(success);
+                        }
+                    };
+                    img.addEventListener('load', () => resolveOnce(true), { once: true });
+                    img.addEventListener('error', () => {
+                        console.warn('[DEBUG smoothAddNewPhotoAtEnd] Image load error:', img.src);
+                        resolveOnce(false);
+                    }, { once: true });
+                    // タイムアウトを5秒に延長
+                    setTimeout(() => {
+                        if (!resolved) {
+                            console.warn('[DEBUG smoothAddNewPhotoAtEnd] Image load timeout:', img.src);
+                            resolveOnce(false);
+                        }
+                    }, 5000);
                 });
             });
 
-            Promise.all(imageLoadPromises).then(() => {
+            Promise.all(imageLoadPromises).then((results) => {
+                const successCount = results.filter(r => r === true).length;
+                const totalCount = results.length;
+                console.log('[DEBUG smoothAddNewPhotoAtEnd] Image load results:', { successCount, totalCount });
+                
                 requestAnimationFrame(() => {
-                    const firstImageWidth = track.children[0] ? track.children[0].getBoundingClientRect().width : 0;
-                    if (firstImageWidth === 0) {
-                        restartTrackAnimation(track, true);
-                        return;
-                    }
+                    // 読み込まれた画像の幅を取得（エラー画像はスキップ）
+                    let firstImageWidth = 0;
+                    let retryCount = 0;
+                    const maxRetries = 10;
                     
-                    const newFirstSetWidth = firstImageWidth * nextPhotos.length;
-                    track.dataset.firstSetWidth = newFirstSetWidth.toString();
-                    
-                    // 現在の位置を新しい幅に合わせて調整
-                    const adjustedTranslateX = (currentTranslateX * newFirstSetWidth) / firstSetWidth;
-                    
-                    // 現在の位置を保持したまま、JavaScriptでアニメーションを制御
-                    let animationStartTime = performance.now();
-                    let animationStartX = adjustedTranslateX;
-                    const targetX = adjustedTranslateX - newFirstSetWidth;
-                    
-                    function animateFrame() {
-                        if (!track.classList.contains('animate')) {
-                            return;
-                        }
-                        const elapsed = (performance.now() - animationStartTime) / 1000;
-                        const progress = Math.min(elapsed / FIXED_ANIMATION_DURATION, 1);
-                        const currentX = animationStartX + (targetX - animationStartX) * progress;
-                        track.style.transform = `translateX(${currentX}px)`;
-                        
-                        if (progress < 1) {
-                            requestAnimationFrame(animateFrame);
-                        } else {
-                            // 1サイクル完了したら、現在の位置から通常のCSSアニメーションに切り替え
-                            const finalX = currentX % (-newFirstSetWidth);
-                            track.style.transform = `translateX(${finalX}px)`;
-                            track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
-                            const remainingProgress = Math.abs(finalX) / newFirstSetWidth;
-                            const delay = -remainingProgress * FIXED_ANIMATION_DURATION;
-                            track.style.animationDelay = `${delay}s`;
-                            setTimeout(() => {
-                                if (track.classList.contains('animate')) {
-                                    track.style.animationDelay = '0s';
+                    const tryGetWidth = () => {
+                        const firstImg = track.children[0];
+                        if (firstImg && firstImg.tagName === 'IMG') {
+                            firstImageWidth = firstImg.getBoundingClientRect().width;
+                            // 画像が読み込まれているか確認
+                            if (firstImg.complete && firstImg.naturalWidth > 0 && firstImageWidth > 0) {
+                                const newFirstSetWidth = firstImageWidth * nextPhotos.length;
+                                track.dataset.firstSetWidth = newFirstSetWidth.toString();
+                                
+                                // 現在の位置を新しい幅に合わせて調整
+                                const adjustedTranslateX = (currentTranslateX * newFirstSetWidth) / firstSetWidth;
+                                
+                                // 現在の位置を保持したまま、JavaScriptでアニメーションを制御
+                                let animationStartTime = performance.now();
+                                let animationStartX = adjustedTranslateX;
+                                const targetX = adjustedTranslateX - newFirstSetWidth;
+                                
+                                function animateFrame() {
+                                    if (!track.classList.contains('animate')) {
+                                        return;
+                                    }
+                                    const elapsed = (performance.now() - animationStartTime) / 1000;
+                                    const progress = Math.min(elapsed / FIXED_ANIMATION_DURATION, 1);
+                                    const currentX = animationStartX + (targetX - animationStartX) * progress;
+                                    track.style.transform = `translateX(${currentX}px)`;
+                                    
+                                    if (progress < 1) {
+                                        requestAnimationFrame(animateFrame);
+                                    } else {
+                                        // 1サイクル完了したら、現在の位置から通常のCSSアニメーションに切り替え
+                                        const finalX = currentX % (-newFirstSetWidth);
+                                        track.style.transform = `translateX(${finalX}px)`;
+                                        track.style.animation = `scroll ${FIXED_ANIMATION_DURATION}s linear infinite`;
+                                        const remainingProgress = Math.abs(finalX) / newFirstSetWidth;
+                                        const delay = -remainingProgress * FIXED_ANIMATION_DURATION;
+                                        track.style.animationDelay = `${delay}s`;
+                                        setTimeout(() => {
+                                            if (track.classList.contains('animate')) {
+                                                track.style.animationDelay = '0s';
+                                            }
+                                        }, (1 - remainingProgress) * FIXED_ANIMATION_DURATION * 1000);
+                                    }
                                 }
-                            }, (1 - remainingProgress) * FIXED_ANIMATION_DURATION * 1000);
+                                
+                                track.classList.add('animate');
+                                track.style.animation = 'none';
+                                requestAnimationFrame(animateFrame);
+                                return;
+                            }
                         }
-                    }
+                        
+                        // リトライ
+                        retryCount++;
+                        if (retryCount < maxRetries) {
+                            setTimeout(tryGetWidth, 100);
+                        } else {
+                            console.error('[DEBUG smoothAddNewPhotoAtEnd] Failed to get image width after retries');
+                            // フォールバック: アニメーションを再開
+                            restartTrackAnimation(track, true);
+                        }
+                    };
                     
-                    track.classList.add('animate');
-                    track.style.animation = 'none';
-                    requestAnimationFrame(animateFrame);
+                    tryGetWidth();
                 });
             });
 
