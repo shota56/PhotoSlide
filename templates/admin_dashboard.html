@@ -116,6 +116,10 @@
         .photo-item:hover {
             transform: translateY(-3px);
         }
+        .photo-item.selected {
+            border: 3px solid #3498db;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+        }
         .photo-item img {
             width: 100%;
             height: auto;
@@ -325,15 +329,31 @@
             const orderSelect = card.querySelector('[data-role="order-select"]');
             const selectButton = card.querySelector('[data-role="activate-category"]');
 
-            const catState = categoriesState.get(categoryId);
-            if (catState) {
-                nameInput.value = catState.name;
-                orderSelect.value = catState.order || orderSelect.value;
+            if (!selectButton) {
+                console.error('Select button not found for category:', categoryId);
+                return;
             }
 
-            selectButton.addEventListener('click', () => {
+            const catState = categoriesState.get(categoryId);
+            if (catState) {
+                if (nameInput) nameInput.value = catState.name;
+                if (orderSelect) orderSelect.value = catState.order || orderSelect.value;
+            }
+
+            selectButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Select button clicked for category:', categoryId);
                 activeCategoryId = categoryId;
                 updateActiveCardVisuals();
+                // 視覚的フィードバック: ボタンのテキストを一時的に変更
+                const originalText = selectButton.textContent;
+                selectButton.textContent = '✓ 選択中...';
+                selectButton.style.background = '#2ecc71';
+                setTimeout(() => {
+                    selectButton.textContent = originalText;
+                    selectButton.style.background = '';
+                }, 1000);
             });
 
             nameInput.addEventListener('input', (event) => {
@@ -369,16 +389,32 @@
                 });
             }
             
-            item.addEventListener('click', () => {
+            item.addEventListener('click', (e) => {
+                // 削除ボタンがクリックされた場合は処理しない
+                if (e.target.closest('.delete-btn')) {
+                    return;
+                }
+                
                 if (!activeCategoryId) {
-                    alert('写真を割り当てるカテゴリを選んでください。');
+                    alert('写真を割り当てるカテゴリを選んでください。\n「このカテゴリに写真を選出」ボタンをクリックしてから、写真を選択してください。');
                     return;
                 }
                 const filename = item.dataset.filename;
+                if (!filename) {
+                    console.error('Filename not found in photo item');
+                    return;
+                }
                 const catState = categoriesState.get(activeCategoryId);
-                if (!catState) return;
+                if (!catState) {
+                    console.error('Category state not found for:', activeCategoryId);
+                    return;
+                }
+                console.log('Assigning photo:', filename, 'to category:', activeCategoryId);
                 catState.photo = filename;
                 refreshCategoryPreview(activeCategoryId);
+                // 視覚的フィードバック: 選択された写真をハイライト
+                document.querySelectorAll('.photo-item').forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
             });
         });
 
