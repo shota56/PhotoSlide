@@ -119,19 +119,31 @@
     </script>
 
     <script>
-        // アニメーション時間（秒）
-        // 1レーン目（上）: 速度を上げる = 時間を短くする（100秒）
-        // 2レーン目（下）: 速度を落とす = 時間を長くする（150秒）
-        const TOP_ANIMATION_DURATION = 100;  // 1レーン目（上）
-        const MIDDLE_ANIMATION_DURATION = 150;  // 2レーン目（下）
+        // アニメーション速度（ピクセル/秒）- 画像数や幅に関係なく一定の速度を保証
+        // 1レーン目（上）: 速い（50px/秒）
+        // 2レーン目（下）: 遅い（30px/秒）
+        const TOP_ANIMATION_SPEED = 50;  // 1レーン目（上）の速度（px/秒）
+        const MIDDLE_ANIMATION_SPEED = 30;  // 2レーン目（下）の速度（px/秒）
         
-        // レーンに応じたアニメーション時間を取得
-        function getAnimationDuration(track) {
+        // レーンに応じたアニメーション速度を取得
+        function getAnimationSpeed(track) {
             if (track && track.id === 'topTrack') {
-                return TOP_ANIMATION_DURATION;
+                return TOP_ANIMATION_SPEED;
             } else {
-                return MIDDLE_ANIMATION_DURATION;
+                return MIDDLE_ANIMATION_SPEED;
             }
+        }
+        
+        // レーンに応じたアニメーション時間を取得（firstSetWidthに基づいて計算）
+        function getAnimationDuration(track, firstSetWidth) {
+            if (!track || firstSetWidth <= 0) {
+                // フォールバック値
+                return track && track.id === 'topTrack' ? 100 : 150;
+            }
+            const speed = getAnimationSpeed(track);
+            // アニメーション時間 = 距離 / 速度
+            // firstSetWidth（1セット分の距離）を移動するのにかかる時間
+            return firstSetWidth / speed;
         }
         const configElement = document.getElementById('slideshow-data');
         const uploadsBaseUrl = "{{ url_for('serve_upload', filename='__PLACEHOLDER__') }}".replace('__PLACEHOLDER__', '');
@@ -540,8 +552,8 @@
                     
                     // 経過時間を計算
                     const elapsed = (currentTime - loop.startTime) / 1000;
-                    // レーンに応じたアニメーション時間を取得
-                    const animationDuration = getAnimationDuration(track);
+                    // レーンに応じたアニメーション時間を取得（firstSetWidthに基づいて計算）
+                    const animationDuration = getAnimationDuration(track, loop.firstSetWidth);
                     // 進捗を0-1の範囲に正規化（無限ループを保証）
                     let progress = (elapsed / animationDuration) % 1;
                     
@@ -951,7 +963,8 @@
                                         return;
                                     }
                                     const elapsed = (performance.now() - animationStartTime) / 1000;
-                                    const progress = Math.min(elapsed / getAnimationDuration(track), 1);
+                                    const animationDuration = getAnimationDuration(track, newFirstSetWidth);
+                                    const progress = Math.min(elapsed / animationDuration, 1);
                                     const currentX = animationStartX + (targetX - animationStartX) * progress;
                                     track.style.transform = `translateX(${currentX}px)`;
                                     
@@ -961,15 +974,15 @@
                                         // 1サイクル完了したら、現在の位置から通常のCSSアニメーションに切り替え
                                         const finalX = currentX % (-newFirstSetWidth);
                                         track.style.transform = `translateX(${finalX}px)`;
-                                        track.style.animation = `scroll ${getAnimationDuration(track)}s linear infinite`;
+                                        track.style.animation = `scroll ${animationDuration}s linear infinite`;
                                         const remainingProgress = Math.abs(finalX) / newFirstSetWidth;
-                                        const delay = -remainingProgress * getAnimationDuration(track);
+                                        const delay = -remainingProgress * animationDuration;
                                         track.style.animationDelay = `${delay}s`;
                                         setTimeout(() => {
                                             if (track.classList.contains('animate')) {
                                                 track.style.animationDelay = '0s';
                                             }
-                                        }, (1 - remainingProgress) * getAnimationDuration(track) * 1000);
+                                        }, (1 - remainingProgress) * animationDuration * 1000);
                                     }
                                 }
                                 
@@ -1175,7 +1188,8 @@
                                         return;
                                     }
                                     const elapsed = (performance.now() - animationStartTime) / 1000;
-                                    const progress = Math.min(elapsed / getAnimationDuration(track), 1);
+                                    const animationDuration = getAnimationDuration(track, newFirstSetWidth);
+                                    const progress = Math.min(elapsed / animationDuration, 1);
                                     const currentX = animationStartX + (targetX - animationStartX) * progress;
                                     track.style.transform = `translateX(${currentX}px)`;
                                     
@@ -1185,15 +1199,15 @@
                                         // 1サイクル完了したら、現在の位置から通常のCSSアニメーションに切り替え
                                         const finalX = currentX % (-newFirstSetWidth);
                                         track.style.transform = `translateX(${finalX}px)`;
-                                        track.style.animation = `scroll ${getAnimationDuration(track)}s linear infinite`;
+                                        track.style.animation = `scroll ${animationDuration}s linear infinite`;
                                         const remainingProgress = Math.abs(finalX) / newFirstSetWidth;
-                                        const delay = -remainingProgress * getAnimationDuration(track);
+                                        const delay = -remainingProgress * animationDuration;
                                         track.style.animationDelay = `${delay}s`;
                                         setTimeout(() => {
                                             if (track.classList.contains('animate')) {
                                                 track.style.animationDelay = '0s';
                                             }
-                                        }, (1 - remainingProgress) * getAnimationDuration(track) * 1000);
+                                        }, (1 - remainingProgress) * animationDuration * 1000);
                                     }
                                 }
                                 
