@@ -362,15 +362,28 @@ def show_ranking(group_id):
 @admin_required
 def update_result_config():
     try:
-        payload = request.get_json(force=True)
-    except Exception:
-        return jsonify({'success': False, 'error': '無効なリクエストです'}), 400
+        # リクエストボディを取得（本番環境でも確実に動作するように）
+        if request.is_json:
+            payload = request.get_json()
+        else:
+            # JSONでない場合、force=Trueで取得を試みる
+            payload = request.get_json(force=True)
+        
+        if not payload:
+            return jsonify({'success': False, 'error': 'リクエストデータがありません'}), 400
+            
+    except Exception as e:
+        print(f"Error parsing JSON: {e}")
+        return jsonify({'success': False, 'error': f'無効なリクエストです: {str(e)}'}), 400
 
     categories_payload = payload.get('categories')
     order_payload = payload.get('order') or []
 
-    if not isinstance(categories_payload, list) or len(categories_payload) != len(DEFAULT_CATEGORIES):
-        return jsonify({'success': False, 'error': 'カテゴリ情報が正しくありません'}), 400
+    if not isinstance(categories_payload, list):
+        return jsonify({'success': False, 'error': 'カテゴリ情報が正しくありません（リストではありません）'}), 400
+    
+    if len(categories_payload) != len(DEFAULT_CATEGORIES):
+        return jsonify({'success': False, 'error': f'カテゴリ情報が正しくありません（期待: {len(DEFAULT_CATEGORIES)}、実際: {len(categories_payload)}）'}), 400
 
     categories_map = {item.get('id'): item for item in categories_payload if isinstance(item, dict) and item.get('id')}
 
@@ -379,6 +392,9 @@ def update_result_config():
         incoming = categories_map.get(default['id'], {})
         name = (incoming.get('name') or default['name']).strip()
         photo = incoming.get('photo') or None
+        # photoが空文字列の場合はNoneに変換
+        if photo == '':
+            photo = None
         normalized_categories.append({
             'id': default['id'],
             'name': name if name else default['name'],
@@ -393,7 +409,15 @@ def update_result_config():
         if cat['id'] not in desired_order:
             desired_order.append(cat['id'])
 
-    save_result_config({'categories': normalized_categories, 'order': desired_order})
+    try:
+        save_result_config({
+            'categories': normalized_categories,
+            'order': desired_order
+        })
+    except Exception as e:
+        print(f"Error saving result config: {e}")
+        return jsonify({'success': False, 'error': f'設定の保存に失敗しました: {str(e)}'}), 500
+
     return jsonify({'success': True})
 
 

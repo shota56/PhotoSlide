@@ -421,8 +421,14 @@
                 body: JSON.stringify(payload)
             })
             .then((response) => {
+                // レスポンスのステータスコードを確認
                 if (!response.ok) {
-                    throw new Error('保存に失敗しました');
+                    // エラーレスポンスのJSONを取得
+                    return response.json().then(errData => {
+                        throw new Error(errData.error || `HTTP ${response.status}: 保存に失敗しました`);
+                    }).catch(() => {
+                        throw new Error(`HTTP ${response.status}: 保存に失敗しました`);
+                    });
                 }
                 return response.json();
             })
@@ -434,8 +440,8 @@
                 }
             })
             .catch((error) => {
-                console.error(error);
-                showStatus('保存に失敗しました', false);
+                console.error('Save error:', error);
+                showStatus(error.message || '保存に失敗しました', false);
             });
         });
     </script>
